@@ -15,7 +15,7 @@ export async function POST(req) {
       "anthropic-version": "2023-06-01",
     },
     body: JSON.stringify({
-      model: "claude-sonnet-4-20250514",
+      model: "claude-sonnet-4-6",
       max_tokens: 1000,
       system: "Та SolarEase платформын нарны цахилгаан үүсгүүрийн AI зөвлөх. Монгол хэлээр хариулна. 1kW=2,700,000₮ | 1980 kWh/kW/жил | 343₮/kWh | Карбон: 20% | Зээл: 3%, 60 сар",
       messages,
