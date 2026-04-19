@@ -274,7 +274,7 @@ const PROJECTS = [
     location: "Сайншанд, Дорноговь",
     capacity: "500 кВт",
     households: 100,
-    img: "https://images.unsplash.com/photo-1559302504-64aae6ca6b6d?w=800&q=80",
+    img: "https://images.unsplash.com/photo-1613665813446-82a78c468a1d?w=800&q=80",
     return: "15%",
     term: "5 жил",
     minInvest: "1,000,000₮",
@@ -300,7 +300,7 @@ const PROJECTS = [
     location: "Замын-Үүд, Дорноговь",
     capacity: "250 кВт",
     households: 50,
-    img: "https://images.unsplash.com/photo-1548169874-53e85f753f1e?w=800&q=80",
+    img: "https://images.unsplash.com/photo-1613665813446-82a78c468a1d?w=800&q=80",
     return: "13%",
     term: "7 жил",
     minInvest: "500,000₮",
@@ -348,7 +348,7 @@ const PROJECTS = [
     location: "Сайншанд, Дорноговь",
     capacity: "750 кВт",
     households: 0,
-    img: "https://images.unsplash.com/photo-1626908013943-df94de54984c?w=800&q=80",
+    img: "https://images.unsplash.com/photo-1613665813446-82a78c468a1d?w=800&q=80",
     return: "20%",
     term: "8 жил",
     minInvest: "5,000,000₮",
@@ -523,7 +523,7 @@ export default function SolarEase() {
 
         {/* BG */}
         <div className="bg-wrap">
-          <img className="bg-img" src="https://images.unsplash.com/photo-1559302504-64aae6ca6b6d?w=1800&q=80" alt="" />
+          <img className="bg-img" src="https://images.unsplash.com/photo-1613665813446-82a78c468a1d?w=1800&q=80" alt="" />
           <div className="bg-ov"/>
         </div>
 
