@@ -543,7 +543,13 @@ export default function SolarEase() {
       });
 
       // 4. Локал state шинэчлэх
-      setUser({ id: data.user.id, name, email, points: 50, ref_code: refCode, verified: false, ad_count: 0, invite_count: 0 });
+      const userId = data?.user?.id;
+      if (!userId) {
+        showToast("Бүртгэл үүсгэгдлээ. Имэйлийг баталгаажуулаад нэвтэрнэ үү.");
+        setAuthMode("login");
+        return;
+      }
+      setUser({ id: userId, name, email, points: 50, ref_code: refCode, verified: false, ad_count: 0, invite_count: 0 });
       setHistory([{ desc: "Бүртгэлийн урамшуулал", pts: 50, t: new Date().toLocaleTimeString() }]);
       showToast("Тавтай морил! +50 оноо!");
 
@@ -554,15 +560,19 @@ export default function SolarEase() {
         password: pass
       });
       if (error) {
-        if (error.message.includes("Invalid login")) {
+        const msg = error.message || "";
+        if (msg.includes("Invalid login") || msg.includes("invalid_credentials") || msg.includes("Invalid credentials")) {
           showToast("Имэйл эсвэл нууц үг буруу байна");
-        } else if (error.message.includes("Email not confirmed")) {
-          showToast("Имэйлээ баталгаажуулна уу — имэйл хайрцгаа шалгана уу");
+        } else if (msg.includes("Email not confirmed")) {
+          showToast("⚠ Имэйлээ баталгаажуулна уу. Supabase → Authentication → Email → Confirm email OFF болгоно уу.");
+        } else if (msg.includes("Supabase тохируулагдаагүй")) {
+          showToast("⚠ Vercel дээр SUPABASE env var тохируулаагүй байна");
         } else {
-          showToast("Нэвтрэх алдаа: " + error.message);
+          showToast("Нэвтрэх алдаа: " + msg);
         }
         return;
       }
+      if (!data?.user?.id) { showToast("Нэвтрэх амжилтгүй. Дахин оролдоно уу."); return; }
       await fetchProfile(data.user.id);
       showToast("Нэвтэрлээ! Таны оноо хадгалагдсан байна ✓");
     }
