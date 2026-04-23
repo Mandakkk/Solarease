@@ -419,7 +419,7 @@ export default function SolarEase() {
   };
 
   // ── AI CALC ───────────────────────────────────────────────
-  const canCalc = user && (user?.points||0) >= COST;
+  const canCalc = user && (parseInt(user?.points)||0) >= COST;
 
   async function sendMsg(e, override) {
     e?.preventDefault();
@@ -789,7 +789,7 @@ export default function SolarEase() {
             <div className="calc-layout">
               <div className="cf">
                 <h2>ГЭРИЙН МЭДЭЭЛЭЛ</h2>
-                {!canCalc && <div style={{background:"rgba(248,113,113,.08)",border:"1px solid rgba(248,113,113,.25)",borderRadius:"var(--radius)",padding:"9px 12px",fontSize:".78rem",color:"#f87171",marginBottom:"1rem"}}>Оноо хүрэлцэхгүй — дашбоард руу очиж нэм.</div>}
+                {!canCalc && !loading && <div style={{background:"rgba(248,113,113,.08)",border:"1px solid rgba(248,113,113,.25)",borderRadius:"var(--radius)",padding:"9px 12px",fontSize:".78rem",color:"#f87171",marginBottom:"1rem"}}>Оноо хүрэлцэхгүй — дашбоард руу очиж нэм.</div>}
                 <div className="field"><label>Талбай (м²)</label><input value={area} onChange={e=>setArea(e.target.value)} placeholder="87"/></div>
                 <div className="field"><label>Халаалт</label>
                   <select value={heat} onChange={e=>setHeat(e.target.value)} style={{width:"100%",background:"rgba(255,255,255,.07)",border:"1px solid var(--border)",borderRadius:"var(--radius)",padding:"10px 14px",color:"#fff",fontFamily:"var(--fbody)",fontSize:".875rem"}}>
@@ -823,7 +823,7 @@ export default function SolarEase() {
                     <button className="btn btn-p btn-sm" type="submit" disabled={!canCalc||!input.trim()||loading}>→</button>
                   </form>
                 </div>
-                {!canCalc && (
+                {!canCalc && !loading && (
                   <div className="lv">
                     <div style={{fontSize:"2.5rem"}}>🔒</div>
                     <h3>ОНОО ХҮРЭЛЦЭХГҮЙ</h3>
