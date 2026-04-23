@@ -42,6 +42,9 @@ const db = {
 };
 
 
+// Helper functions
+const genCode = n => "SE-" + (n||"X").slice(0,3).toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase();
+
 /* ─── STYLES ─────────────────────────────────────────────── */
 const G = `
 @import url('https://fonts.googleapis.com/css2?family=Bebas+Neue&family=DM+Sans:opsz,wght@9..40,300;9..40,400;9..40,500;9..40,600&display=swap');
@@ -478,8 +481,10 @@ export default function SolarEase() {
 
   const fetchProfile = async (userId) => {
     try {
-      const { data: profile } = await db.from("profiles")
-        .select("*").eq("id", userId).single();
+      const sb2 = getSB();
+      if (!sb2) return;
+      const { data: profile } = await sb2.from("profiles")
+        .select("*").eq("id", userId).maybeSingle();
       if (profile) {
         setUser(profile);
         setPage(p => p === "landing" ? "invest" : p);
@@ -533,35 +538,47 @@ export default function SolarEase() {
     try {
     if (authMode === "register") {
       // 1. Supabase Auth-д бүртгэх
-      const { data, error } = await db.auth.signUp({ email: email.trim().toLowerCase(), password: pass });
-      if (error) { showToast("Алдаа: " + error.message); return; }
-
-      // 2. profiles хүснэгтэд хэрэглэгч үүсгэх
-      const refCode = genCode(name);
-      await db.from("profiles").insert({
-        id: data.user.id,
-        name, email, points: 50,
-        ref_code: refCode,
-        verified: false,
-        ad_count: 0,
-        invite_count: 0,
+      const { data, error } = await db.auth.signUp({
+        email: email.trim().toLowerCase(),
+        password: pass
       });
-
-      // 3. Оноoны түүхэнд нэмэх
-      await db.from("point_history").insert({
-        user_id: data.user.id,
-        description: "Бүртгэлийн урамшуулал",
-        points: 50,
-      });
-
-      // 4. Локал state шинэчлэх
-      const userId = data?.user?.id;
-      if (!userId) {
-        showToast("Бүртгэл үүсгэгдлээ. Имэйлийг баталгаажуулаад нэвтэрнэ үү.");
-        setAuthMode("login");
+      if (error) {
+        showToast("Бүртгэлийн алдаа: " + error.message);
+        setAuthLoading(false);
         return;
       }
-      setUser({ id: userId, name, email, points: 50, ref_code: refCode, verified: false, ad_count: 0, invite_count: 0 });
+
+      const userId = data?.user?.id;
+      if (!userId) {
+        showToast("Бүртгэл үүсгэгдлээ — нэвтэрнэ үү.");
+        setAuthMode("login");
+        setAuthLoading(false);
+        return;
+      }
+
+      // 2. profiles + point_history — алдаа гарсан ч үргэлжлүүлнэ
+      const refCode = genCode(name);
+      const sb = getSB();
+      if (sb) {
+        try {
+          await sb.from("profiles").insert({
+            id: userId, name,
+            email: email.trim().toLowerCase(),
+            points: 50, ref_code: refCode,
+            verified: false, ad_count: 0, invite_count: 0,
+          });
+          await sb.from("point_history").insert({
+            user_id: userId,
+            description: "Бүртгэлийн урамшуулал",
+            points: 50,
+          });
+        } catch(dbErr) {
+          console.warn("DB insert warn:", dbErr);
+        }
+      }
+
+      // 3. Локал state — заавал ажиллана
+      setUser({ id: userId, name, email: email.trim().toLowerCase(), points: 50, ref_code: refCode, verified: false, ad_count: 0, invite_count: 0 });
       setHistory([{ desc: "Бүртгэлийн урамшуулал", pts: 50, t: new Date().toLocaleTimeString() }]);
       showToast("Тавтай морил! +50 оноо!");
 
@@ -590,8 +607,8 @@ export default function SolarEase() {
       try {
         const sb = getSB();
         if (sb) {
-          const { data: p } = await sb.from("profiles").select("*").eq("id", uid).single();
-          profileData = p;
+          const res = await sb.from("profiles").select("*").eq("id", uid).maybeSingle();
+          profileData = res?.data || null;
         }
       } catch(e) { console.warn("fetchProfile warn:", e); }
 
