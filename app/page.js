@@ -571,7 +571,7 @@ export default function SolarEase() {
             <div className="project-list">
               {PROJECTS.map(p=>(
                 <div className="pcard" key={p.id} onClick={()=>{ setSelectedProject(p); setActiveTab("overview"); }}>
-                  <div style={{position:"relative"}}>
+                  <div>
                     <img className="pcard-img" src={p.img} alt={p.title}/>
                     <div style={{position:"absolute",top:"12px",left:"12px"}}>
                       <span className={`pstatus ${p.status==="open"?"status-open":p.status==="full"?"status-full":"status-soon"}`}>
@@ -810,7 +810,7 @@ export default function SolarEase() {
                   ))}
                 </div>
               </div>
-              <div style={{position:"relative"}}>
+              <div>
                 <div className="chatbox">
                   <div className="ch"><div className="aip"/><span className="chn">🤖 SolarEase AI</span><span className="chp">{user?.points||0} оноо</span></div>
                   <div className="cm">
@@ -818,19 +818,19 @@ export default function SolarEase() {
                     {loading && <div className="msg ai loading"><div className="dot"/><div className="dot"/><div className="dot"/></div>}
                     <div ref={msgEnd}/>
                   </div>
-                  <form className="ci" onSubmit={sendMsg}>
-                    <input value={input} onChange={e=>setInput(e.target.value)} placeholder={canCalc?"Асуулт бичнэ үү...":"Оноо хүрэлцэхгүй"} disabled={!canCalc||loading}/>
-                    <button className="btn btn-p btn-sm" type="submit" disabled={!canCalc||!input.trim()||loading}>→</button>
-                  </form>
+                  {canCalc ? (
+                    <form className="ci" onSubmit={sendMsg}>
+                      <input value={input} onChange={e=>setInput(e.target.value)} placeholder="Асуулт бичнэ үү..." disabled={loading}/>
+                      <button className="btn btn-p btn-sm" type="submit" disabled={!input.trim()||loading}>→</button>
+                    </form>
+                  ) : (
+                    <div style={{padding:".75rem 1rem",borderTop:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px"}}>
+                      <span style={{fontSize:".78rem",color:"var(--muted)"}}>⚡ Дараагийн асуулт: {COST} оноо шаардлагатай</span>
+                      <button className="btn btn-p btn-sm" onClick={()=>setPage("dash")}>Оноо нэмэх →</button>
+                    </div>
+                  )}
                 </div>
-                {!canCalc && !loading && (
-                  <div className="lv">
-                    <div style={{fontSize:"2.5rem"}}>🔒</div>
-                    <h3>ОНОО ХҮРЭЛЦЭХГҮЙ</h3>
-                    <p>{COST} оноо шаардлагатай</p>
-                    <button className="btn btn-p btn-sm" onClick={()=>setPage("dash")}>Оноо цуглуулах →</button>
-                  </div>
-                )}
+
               </div>
             </div>
           </div>
