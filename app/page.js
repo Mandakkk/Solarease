@@ -487,7 +487,7 @@ export default function SolarEase() {
     e.preventDefault();
     if (authMode === "register") {
       // 1. Supabase Auth-д бүртгэх
-      const { data, error } = await supabase.auth.signUp({ email, password: pass });
+      const { data, error } = await supabase.auth.signUp({ email: email.trim().toLowerCase(), password: pass });
       if (error) { showToast("Алдаа: " + error.message); return; }
 
       // 2. profiles хүснэгтэд хэрэглэгч үүсгэх
@@ -514,9 +514,21 @@ export default function SolarEase() {
       showToast("Тавтай морил! +50 оноо!");
 
     } else {
-      // Нэвтрэх
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
-      if (error) { showToast("Нэвтрэх алдаа: " + error.message); return; }
+      // Нэвтрэх — зөвхөн Supabase-д бүртгэлтэй хэрэглэгч л нэвтэрнэ
+      const { data, error } = await supabase.auth.signInWithPassword({
+        email: email.trim().toLowerCase(),
+        password: pass
+      });
+      if (error) {
+        if (error.message.includes("Invalid login")) {
+          showToast("Имэйл эсвэл нууц үг буруу байна");
+        } else if (error.message.includes("Email not confirmed")) {
+          showToast("Имэйлээ баталгаажуулна уу — имэйл хайрцгаа шалгана уу");
+        } else {
+          showToast("Нэвтрэх алдаа: " + error.message);
+        }
+        return;
+      }
       await fetchProfile(data.user.id);
       showToast("Нэвтэрлээ! Таны оноо хадгалагдсан байна ✓");
     }
@@ -899,13 +911,28 @@ export default function SolarEase() {
           <div className="auth-page">
             <div className="auth-card">
               <h2>{authMode === "register" ? "БҮРТГЭЛ ҮҮСГЭХ" : "НЭВТРЭХ"}</h2>
-              <p className="auth-sub">{authMode === "register" ? "Бүртгүүлж AI тооцоолол болон хөрөнгө оруулалтад нэвтэр" : "Тавтай морил"}</p>
+              <p className="auth-sub">{authMode === "register" ? "Бүртгүүлж AI тооцоолол болон хөрөнгө оруулалтад нэвтэр" : "Имэйл болон нууц үгээрээ нэвтэрнэ үү"}</p>
               {authMode === "register" && <div className="bonus-note">🎁 Бүртгүүлснийхээ шагнал 50 оноо автоматаар нэмэгдэнэ</div>}
               <form onSubmit={handleAuth}>
-                <div className="field"><label>Нэр</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="Таны нэр" required/></div>
+                {authMode === "register" && (
+                  <div className="field"><label>Нэр</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="Таны нэр" required/></div>
+                )}
                 <div className="field"><label>Имэйл</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="example@gmail.com" required/></div>
-                <div className="field"><label>Нууц үг</label><input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••" required/></div>
-                {authMode === "register" && <div className="field"><label>Урилгын код (заавал биш)</label><input value={refIn} onChange={e=>setRefIn(e.target.value)} placeholder="SE-XXX..."/></div>}
+                <div className="field"><label>Нууц үг</label><input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••" minLength={6} required/></div>
+                {authMode === "register" && (
+                  <div className="field"><label>Урилгын код (заавал биш)</label><input value={refIn} onChange={e=>setRefIn(e.target.value)} placeholder="SE-XXX..."/></div>
+                )}
+                {authMode === "login" && (
+                  <div style={{textAlign:"right",marginBottom:".75rem"}}>
+                    <button type="button" style={{background:"none",border:"none",color:"var(--green3)",fontSize:".78rem",cursor:"pointer",fontFamily:"var(--fbody)"}}
+                      onClick={async () => {
+                        if (!email) { showToast("Имэйл хаягаа оруулна уу"); return; }
+                        const { error } = await supabase.auth.resetPasswordForEmail(email);
+                        if (error) showToast("Алдаа: " + error.message);
+                        else showToast("Нууц үг сэргээх линк имэйлд илгээлээ ✓");
+                      }}>Нууц үгээ мартсан уу?</button>
+                  </div>
+                )}
                 <button className="btn btn-p" style={{width:"100%",justifyContent:"center",marginTop:".25rem"}} type="submit">
                   {authMode === "register" ? "БҮРТГҮҮЛЭХ" : "НЭВТРЭХ"}
                 </button>
