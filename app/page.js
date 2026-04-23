@@ -477,17 +477,25 @@ export default function SolarEase() {
   }, []);
 
   const fetchProfile = async (userId) => {
-    const { data: profile } = await supabase
-      .from("profiles").select("*").eq("id", userId).single();
-    if (profile) {
-      setUser(profile);
-      setPage(p => p === "landing" ? "invest" : p);
-      // Load history
-      const { data: hist } = await supabase
-        .from("point_history")
-        .select("*").eq("user_id", userId)
-        .order("created_at", { ascending: false }).limit(20);
-      if (hist) setHistory(hist.map(h => ({ desc: h.description, pts: h.points, t: new Date(h.created_at).toLocaleTimeString() })));
+    try {
+      const { data: profile } = await db.from("profiles")
+        .select("*").eq("id", userId).single();
+      if (profile) {
+        setUser(profile);
+        setPage(p => p === "landing" ? "invest" : p);
+        const sb = getSB();
+        if (sb) {
+          const { data: hist } = await sb.from("point_history")
+            .select("*").eq("user_id", userId)
+            .order("created_at", { ascending: false }).limit(20);
+          if (hist) setHistory(hist.map(h => ({
+            desc: h.description, pts: h.points,
+            t: new Date(h.created_at).toLocaleTimeString()
+          })));
+        }
+      }
+    } catch(e) {
+      console.error("fetchProfile error:", e);
     }
   };
   useEffect(() => { msgEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
