@@ -625,8 +625,9 @@ export default function SolarEase() {
             {user ? (
               <>
                 <div className="pts-pill">⚡ {user?.points || 0} оноо</div>
+                <div style={{fontSize:".78rem",color:"var(--muted)",maxWidth:"100px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user?.name}</div>
                 <button className="btn btn-g btn-sm" onClick={() => setPage("dash")}>Хяналт</button>
-              <button className="btn btn-g btn-sm" onClick={async () => { await supabase.auth.signOut(); setUser(null); setHistory([]); setPage("landing"); showToast("Гарлаа."); }}>Гарах</button>
+                <button className="btn btn-sm" style={{background:"rgba(248,113,113,.12)",color:"#f87171",border:"1px solid rgba(248,113,113,.3)"}} onClick={async () => { await supabase.auth.signOut(); setUser(null); setHistory([]); setPage("landing"); showToast("Амжилттай гарлаа."); }}>↩ Гарах</button>
               </>
             ) : (
               <>
@@ -1037,6 +1038,37 @@ export default function SolarEase() {
                 ))}
               </div>
             </>)}
+
+            {/* ACCOUNT SECTION */}
+            <hr className="divider"/>
+            <div style={{background:"rgba(255,255,255,.03)",border:"1px solid var(--border)",borderRadius:"var(--radius-lg)",padding:"1.25rem"}}>
+              <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"1rem"}}>
+                <div>
+                  <div style={{fontSize:".7rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:"4px"}}>Бүртгэлтэй хэрэглэгч</div>
+                  <div style={{fontWeight:"600",fontSize:".95rem"}}>{user?.name}</div>
+                  <div style={{fontSize:".8rem",color:"var(--muted)",marginTop:"2px"}}>{user?.email}</div>
+                </div>
+                <div style={{display:"flex",gap:"8px",alignItems:"center",flexWrap:"wrap"}}>
+                  <div style={{background:"rgba(74,222,128,.08)",border:"1px solid rgba(74,222,128,.2)",borderRadius:"var(--radius)",padding:"8px 14px",textAlign:"center"}}>
+                    <div style={{fontFamily:"var(--fhead)",fontSize:"1.4rem",color:"var(--green3)",letterSpacing:".04em",lineHeight:"1"}}>{user?.points || 0}</div>
+                    <div style={{fontSize:".65rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:".06em",marginTop:"2px"}}>Нийт оноо</div>
+                  </div>
+                  <button
+                    className="btn btn-sm"
+                    style={{background:"rgba(248,113,113,.1)",color:"#f87171",border:"1px solid rgba(248,113,113,.3)",borderRadius:"var(--radius)"}}
+                    onClick={async () => {
+                      await supabase.auth.signOut();
+                      setUser(null);
+                      setHistory([]);
+                      setPage("landing");
+                      showToast("Амжилттай гарлаа.");
+                    }}
+                  >
+                    ↩ Системээс гарах
+                  </button>
+                </div>
+              </div>
+            </div>
           </div>
         )}
 
