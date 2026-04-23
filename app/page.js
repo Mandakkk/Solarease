@@ -1,5 +1,5 @@
 "use client";
-import { useState, useEffect, useRef } from "react";
+import { useState, useEffect } from "react";
 
 /* ── helpers ── */
 const genCode = n => "SE-" + (n||"X").slice(0,3).toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase();
@@ -304,16 +304,22 @@ export default function SolarEase() {
   const [email, setEmail]                 = useState("");
   const [pass, setPass]                   = useState("");
   const [authLoading, setAuthLoading]     = useState(false);
-  const [area, setArea]                   = useState("87");
-  const [heat, setHeat]                   = useState("electric");
-  const [monthly, setMonthly]             = useState("150000");
-  const [msgs, setMsgs]                   = useState([{ role:"assistant", content:"Сайн байна уу! Нарны системийн тооцоог хийхэд тусална.\n\nГэрийнхээ мэдээллийг оруулаад «Тооцоолох» дарна уу." }]);
-  const [input, setInput]                 = useState("");
-  const [loading, setLoading]             = useState(false);
+  // wizard state
+  const [step, setStep]           = useState(1); // 1=type,2=space,3=details,4=report
+  const [propType, setPropType]   = useState(""); // ger|apartment|house
+  const [hasSpace, setHasSpace]   = useState(""); // yes|no|unknown
+  const [area, setArea]           = useState("");
+  const [heat, setHeat]           = useState("");
+  const [monthly, setMonthly]     = useState("");
+  const [report, setReport]       = useState(null);
+  const [loading, setLoading]     = useState(false);
+  const [chatQ, setChatQ]         = useState("");
+  const [chatMsgs, setChatMsgs]   = useState([]);
+  const [chatLoading, setChatLoading] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
   const [activeTab, setActiveTab]         = useState("overview");
   const [investAmt, setInvestAmt]         = useState("1000000");
-  const msgEnd = useRef(null);
+
 
   // Load from localStorage on mount
   useEffect(() => {
@@ -322,7 +328,7 @@ export default function SolarEase() {
   }, []);
 
   useEffect(() => { if (toast) { const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); } }, [toast]);
-  useEffect(() => { msgEnd.current?.scrollIntoView({ behavior:"smooth" }); }, [msgs]);
+
 
   const showToast = msg => setToast(msg);
 
@@ -421,24 +427,119 @@ export default function SolarEase() {
   // ── AI CALC ───────────────────────────────────────────────
   const canCalc = user && (parseInt(user?.points)||0) >= COST;
 
-  async function sendMsg(e, override) {
-    e?.preventDefault();
-    const txt = (override||input).trim();
-    if (!txt||loading) return;
+  const typeLabel = { ger:"Гэр", apartment:"Орон сууц", house:"Хашаа байшин" };
+
+  async function generateReport() {
     if (!canCalc) { showToast(`${COST} оноо хэрэгтэй.`); return; }
-    usePts(COST, "AI тооцоолол");
-    const um = { role:"user", content:txt };
-    setMsgs(m=>[...m, um]); setInput(""); setLoading(true);
+    usePts(COST, "AI нарны тооцоолол");
+    setLoading(true); setStep(4); setReport(null);
+    const spaceLabel = propType==="ger" ? (hasSpace==="yes"?"газарт суурилуулах зай байна":"газарт суурилуулах зай хязгаарлагдмал") : (hasSpace==="yes"?"дээвэрт суурилуулах зай байна":"дээвэрт зай хязгаарлагдмал");
+    const heatLabel = heat==="electric"?"цахилгаан":heat==="coal"?"нүүрс":"төвийн";
+    const prompt = `SolarEase нарны тооцоолол. JSON форматаар хариул, өөр текст бүү нэм.
+
+Өгөгдөл:
+- Байрны төрөл: ${typeLabel[propType]||propType}
+- Талбай: ${area}м²
+- ${spaceLabel}
+- Халаалт: ${heatLabel}
+- Сарын цахилгааны зардал: ${parseInt(monthly).toLocaleString()}₮
+- Байршил: Дорноговь аймаг (нарны цацраг 1980 kWh/kW/жил)
+- 1kW суурилуулалт: 2,700,000₮
+- Карбон механизм: 20% хямдрал
+- Ногоон зээл: 3% хүү, 60 сар
+- Экспортын тариф: 343₮/kWh
+
+Дараах JSON бүтцээр хариул:
+{
+  "recommended_kw": number,
+  "panel_count": number,
+  "space_needed_m2": number,
+  "installation_cost": number,
+  "after_carbon": number,
+  "monthly_loan": number,
+  "annual_export_income": number,
+  "annual_saving": number,
+  "annual_total_income": number,
+  "payback_years": number,
+  "co2_reduction_tons": number,
+  "coal_saving_tons": number,
+  "summary": "2-3 өгүүлбэрт хэрэглэгчэд зориулсан тайлбар",
+  "tips": ["зөвлөмж 1", "зөвлөмж 2", "зөвлөмж 3"]
+}`;
     try {
-      const reply = await askClaude([...msgs, um].map(m=>({ role:m.role, content:m.content })));
-      setMsgs(m=>[...m, { role:"assistant", content:reply }]);
-    } catch { setMsgs(m=>[...m, { role:"assistant", content:"Холболт шалгана уу." }]); }
+      const raw = await askClaude([{ role:"user", content:prompt }]);
+      const clean = raw.replace(/\`\`\`json|\`\`\`/g,"").trim();
+      const data = JSON.parse(clean);
+      setReport(data);
+    } catch(e) {
+      setReport({ error: "Тооцоолол амжилтгүй болов. Дахин оролдоно уу." });
+    }
     setLoading(false);
   }
 
-  async function autoCalc() {
-    const q = `Миний гэр: ${area}м², халаалт: ${heat==="electric"?"цахилгаан":heat==="coal"?"нүүрс":"төвийн"}, сарын цахилгааны зардал: ${parseInt(monthly).toLocaleString()}₮. Нарны системийн дэлгэрэнгүй тооцоо гарга.`;
-    await sendMsg(null, q);
+  async function sendChat(e) {
+    e?.preventDefault();
+    const txt = chatQ.trim();
+    if (!txt||chatLoading) return;
+    if (!canCalc) { showToast(`${COST} оноо хэрэгтэй.`); return; }
+    usePts(COST, "AI асуулт");
+    const um = { role:"user", content:txt };
+    setChatMsgs(m=>[...m, um]); setChatQ(""); setChatLoading(true);
+    try {
+      const ctx = report ? `Контекст: ${typeLabel[propType]} ${area}м², ${parseInt(monthly).toLocaleString()}₮/сар. Тооцооны үр дүн: ${report.recommended_kw}kW систем, ${report.after_carbon?.toLocaleString()}₮ зардал, ${report.payback_years} жилд нөхөгдөнө.` : "";
+      const reply = await askClaude([{ role:"user", content:ctx }, ...chatMsgs.slice(-4), um].filter(m=>m.content).map(m=>({role:m.role,content:m.content})));
+      setChatMsgs(m=>[...m, { role:"assistant", content:reply }]);
+    } catch { setChatMsgs(m=>[...m, { role:"assistant", content:"Холболт шалгана уу." }]); }
+    setChatLoading(false);
+  }
+
+  function downloadReport() {
+    if (!report||report.error) return;
+    const t = typeLabel[propType]||propType;
+    const html = `<!DOCTYPE html><html><head><meta charset='utf-8'><title>SolarEase Тайлан</title>
+<style>body{font-family:Arial,sans-serif;max-width:800px;margin:40px auto;color:#1a1a1a;padding:20px}
+h1{color:#2d8653;font-size:28px;margin-bottom:4px}
+.sub{color:#666;margin-bottom:32px}
+.grid{display:grid;grid-template-columns:1fr 1fr 1fr;gap:16px;margin:24px 0}
+.card{background:#f0fdf4;border:1px solid #86efac;border-radius:12px;padding:16px;text-align:center}
+.card .val{font-size:24px;font-weight:700;color:#16a34a;margin:4px 0}
+.card .lbl{font-size:12px;color:#666;text-transform:uppercase;letter-spacing:0.05em}
+.section{margin:32px 0}
+.section h2{color:#2d8653;font-size:18px;border-bottom:2px solid #86efac;padding-bottom:8px;margin-bottom:16px}
+.tip{background:#fefce8;border-left:4px solid #eab308;padding:10px 14px;margin:8px 0;border-radius:4px;font-size:14px}
+.footer{margin-top:48px;padding-top:16px;border-top:1px solid #e5e7eb;color:#9ca3af;font-size:12px;text-align:center}
+</style></head><body>
+<h1>☀ SolarEase Нарны Тооцооны Тайлан</h1>
+<div class='sub'>Байрны төрөл: ${t} · Талбай: ${area}м² · Халаалт: ${heat==="electric"?"Цахилгаан":heat==="coal"?"Нүүрс":"Төвийн"} · Сарын зардал: ${parseInt(monthly).toLocaleString()}₮</div>
+<div class='section'><h2>Санал болгох систем</h2>
+<div class='grid'>
+<div class='card'><div class='lbl'>Системийн хэмжээ</div><div class='val'>${report.recommended_kw} kW</div></div>
+<div class='card'><div class='lbl'>Панелийн тоо</div><div class='val'>${report.panel_count} ш</div></div>
+<div class='card'><div class='lbl'>Шаардлагатай талбай</div><div class='val'>${report.space_needed_m2} м²</div></div>
+</div></div>
+<div class='section'><h2>Санхүүгийн тооцоо</h2>
+<div class='grid'>
+<div class='card'><div class='lbl'>Суурилуулалтын зардал</div><div class='val'>${(report.installation_cost/1000000).toFixed(1)}M₮</div></div>
+<div class='card'><div class='lbl'>Карбон хөнгөлөлтийн дараа</div><div class='val'>${(report.after_carbon/1000000).toFixed(1)}M₮</div></div>
+<div class='card'><div class='lbl'>Сарын зээлийн төлбөр</div><div class='val'>${Math.round(report.monthly_loan/1000)}K₮</div></div>
+<div class='card'><div class='lbl'>Жилийн экспортын орлого</div><div class='val'>${(report.annual_export_income/1000000).toFixed(1)}M₮</div></div>
+<div class='card'><div class='lbl'>Жилийн хэмнэлт</div><div class='val'>${(report.annual_saving/1000000).toFixed(1)}M₮</div></div>
+<div class='card'><div class='lbl'>Хөрөнгө нөхөх хугацаа</div><div class='val'>${report.payback_years} жил</div></div>
+</div></div>
+<div class='section'><h2>Байгаль орчны ашиг</h2>
+<div class='grid'>
+<div class='card'><div class='lbl'>CO₂ бууралт/жил</div><div class='val'>${report.co2_reduction_tons} тн</div></div>
+<div class='card'><div class='lbl'>Нүүрсний хэмнэлт/жил</div><div class='val'>${report.coal_saving_tons} тн</div></div>
+</div></div>
+<div class='section'><h2>Дүгнэлт</h2><p>${report.summary}</p>
+<div style='margin-top:16px'>${(report.tips||[]).map(t=>`<div class='tip'>${t}</div>`).join("")}</div></div>
+<div class='footer'>SolarEase Fintech Platform · solarease.mn · Дорноговь аймаг 2025</div>
+</body></html>`;
+    const blob = new Blob([html], {type:"text/html"});
+    const a = document.createElement("a");
+    a.href = URL.createObjectURL(blob);
+    a.download = "solarease-report.html";
+    a.click();
   }
 
   // ── INVEST calc ───────────────────────────────────────────
@@ -779,60 +880,259 @@ export default function SolarEase() {
         {/* ── CALC ── */}
         {page==="calc" && user && (
           <div className="calc-page">
-            <div style={{marginBottom:"1.5rem"}}>
-              <div className="stitle">☀ AI НАРНЫ ТООЦООЛОЛ</div>
-              <p style={{fontSize:".85rem",color:"var(--muted)"}}>
-                Асуулт бүрт 30 оноо · Үлдэгдэл: <strong style={{color:"var(--gold)"}}>{user?.points||0} оноо</strong>
-                {" · "}<button className="btn btn-g btn-sm" onClick={()=>setPage("dash")}>Оноо нэмэх</button>
-              </p>
+            <div style={{marginBottom:"1.5rem",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"1rem"}}>
+              <div>
+                <div className="stitle">☀ AI НАРНЫ ТООЦООЛОЛ</div>
+                <p style={{fontSize:".85rem",color:"var(--muted)"}}>
+                  Тооцооны үнэ: <strong style={{color:"var(--gold)"}}>{COST} оноо</strong> · Үлдэгдэл: <strong style={{color:"var(--gold)"}}>{user?.points||0} оноо</strong>
+                  {" · "}<button className="btn btn-g btn-sm" onClick={()=>setPage("dash")}>Оноо нэмэх</button>
+                </p>
+              </div>
+              {step>1 && <button className="btn btn-g btn-sm" onClick={()=>{ setStep(1); setPropType(""); setHasSpace(""); setArea(""); setHeat(""); setMonthly(""); setReport(null); setChatMsgs([]); }}>↩ Шинэ тооцоо</button>}
             </div>
-            <div className="calc-layout">
-              <div className="cf">
-                <h2>ГЭРИЙН МЭДЭЭЛЭЛ</h2>
-                {!canCalc && !loading && <div style={{background:"rgba(248,113,113,.08)",border:"1px solid rgba(248,113,113,.25)",borderRadius:"var(--radius)",padding:"9px 12px",fontSize:".78rem",color:"#f87171",marginBottom:"1rem"}}>Оноо хүрэлцэхгүй — дашбоард руу очиж нэм.</div>}
-                <div className="field"><label>Талбай (м²)</label><input value={area} onChange={e=>setArea(e.target.value)} placeholder="87"/></div>
-                <div className="field"><label>Халаалт</label>
-                  <select value={heat} onChange={e=>setHeat(e.target.value)} style={{width:"100%",background:"rgba(255,255,255,.07)",border:"1px solid var(--border)",borderRadius:"var(--radius)",padding:"10px 14px",color:"#fff",fontFamily:"var(--fbody)",fontSize:".875rem"}}>
-                    <option value="electric">Цахилгаан халаалт</option>
-                    <option value="coal">Нүүрс халаалт</option>
-                    <option value="central">Төвийн халаалт</option>
-                  </select>
+
+            {/* STEP INDICATOR */}
+            <div style={{display:"flex",gap:"8px",marginBottom:"2rem",alignItems:"center"}}>
+              {[["1","Байрны төрөл"],["2","Суурилуулалтын зай"],["3","Дэлгэрэнгүй"],["4","Тайлан"]].map(([n,l],i)=>(
+                <div key={n} style={{display:"flex",alignItems:"center",gap:"8px"}}>
+                  <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:"3px"}}>
+                    <div style={{width:"28px",height:"28px",borderRadius:"50%",display:"flex",alignItems:"center",justifyContent:"center",fontSize:".75rem",fontWeight:"700",background:step>=parseInt(n)?"var(--green2)":"rgba(255,255,255,.08)",color:step>=parseInt(n)?"#fff":"var(--muted)",border:step===parseInt(n)?"2px solid var(--green3)":"2px solid transparent",transition:"all .2s"}}>{parseInt(n)<step?"✓":n}</div>
+                    <span style={{fontSize:".65rem",color:step>=parseInt(n)?"var(--green3)":"var(--hint)",whiteSpace:"nowrap"}}>{l}</span>
+                  </div>
+                  {i<3 && <div style={{flex:1,height:"2px",background:step>parseInt(n)?"var(--green2)":"rgba(255,255,255,.1)",minWidth:"20px",marginBottom:"14px",transition:"all .2s"}}/>}
                 </div>
-                <div className="field"><label>Сарын цахилгааны зардал (₮)</label><input value={monthly} onChange={e=>setMonthly(e.target.value)} placeholder="150000"/></div>
-                <div className="cost-note">⚡ Тооцооллын өртөг: 30 оноо</div>
-                <button className="btn btn-p" style={{width:"100%",justifyContent:"center"}} onClick={autoCalc} disabled={!canCalc||loading}>
-                  {loading?"Тооцоолж байна...":"AI-АЭР ТООЦОО ГАРГА →"}
-                </button>
-                <div style={{marginTop:"1.25rem",display:"flex",flexDirection:"column",gap:"6px"}}>
-                  <div style={{fontSize:".7rem",color:"var(--muted)",marginBottom:"2px",textTransform:"uppercase",letterSpacing:".08em"}}>Хурдан асуулт</div>
-                  {["10kW системийн хөрөнгө нөхөх хугацааг тооцоол","Карбон механизмгүй бол тооцоо хэрхэн өөрчлөгдөх вэ?","100 айлын нарны системд хэдий хөрөнгө шаардлагатай вэ?"].map(q=>(
-                    <button key={q} className="qq" onClick={()=>sendMsg(null,q)} disabled={!canCalc||loading}>{q}</button>
+              ))}
+            </div>
+
+            {/* STEP 1: Property Type */}
+            {step===1 && (
+              <div style={{maxWidth:"600px",margin:"0 auto"}}>
+                <h2 style={{fontFamily:"var(--fhead)",fontSize:"1.8rem",letterSpacing:".04em",marginBottom:".5rem"}}>БАЙРНЫ ТӨРЛӨӨ СОНГОНО УУ</h2>
+                <p style={{color:"var(--muted)",fontSize:".9rem",marginBottom:"2rem"}}>Байрны төрлөөс хамааран суурилуулалтын арга, системийн хэмжээ тодорхойлогдоно.</p>
+                <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"1rem"}}>
+                  {[
+                    {k:"ger",icon:"🏠",title:"Гэр",desc:"Монгол гэр буюу хашааны гэр"},
+                    {k:"apartment",icon:"🏢",title:"Орон сууц",desc:"Олон давхар байрны нэг тохой"},
+                    {k:"house",icon:"🏡",title:"Хашаа байшин",desc:"Хувийн хашаатай байшин"},
+                  ].map(t=>(
+                    <div key={t.k} onClick={()=>{ setPropType(t.k); setStep(2); }} style={{background:propType===t.k?"rgba(74,222,128,.12)":"rgba(255,255,255,.04)",border:propType===t.k?"2px solid var(--green3)":"2px solid var(--border)",borderRadius:"var(--radius-lg)",padding:"1.5rem",cursor:"pointer",textAlign:"center",transition:"all .2s"}}>
+                      <div style={{fontSize:"2.5rem",marginBottom:".75rem"}}>{t.icon}</div>
+                      <div style={{fontFamily:"var(--fhead)",fontSize:"1.2rem",letterSpacing:".04em",marginBottom:".35rem"}}>{t.title}</div>
+                      <div style={{fontSize:".78rem",color:"var(--muted)"}}>{t.desc}</div>
+                    </div>
                   ))}
                 </div>
               </div>
-              <div>
-                <div className="chatbox">
-                  <div className="ch"><div className="aip"/><span className="chn">🤖 SolarEase AI</span><span className="chp">{user?.points||0} оноо</span></div>
-                  <div className="cm">
-                    {msgs.map((m,i)=><div key={i} className={`msg ${m.role==="assistant"?"ai":"user"}`} style={{whiteSpace:"pre-wrap"}}>{m.content}</div>)}
-                    {loading && <div className="msg ai loading"><div className="dot"/><div className="dot"/><div className="dot"/></div>}
-                    <div ref={msgEnd}/>
-                  </div>
-                  {canCalc ? (
-                    <form className="ci" onSubmit={sendMsg}>
-                      <input value={input} onChange={e=>setInput(e.target.value)} placeholder="Асуулт бичнэ үү..." disabled={loading}/>
-                      <button className="btn btn-p btn-sm" type="submit" disabled={!input.trim()||loading}>→</button>
-                    </form>
-                  ) : (
-                    <div style={{padding:".75rem 1rem",borderTop:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between",gap:"8px"}}>
-                      <span style={{fontSize:".78rem",color:"var(--muted)"}}>⚡ Дараагийн асуулт: {COST} оноо шаардлагатай</span>
-                      <button className="btn btn-p btn-sm" onClick={()=>setPage("dash")}>Оноо нэмэх →</button>
-                    </div>
-                  )}
-                </div>
+            )}
 
+            {/* STEP 2: Space */}
+            {step===2 && (
+              <div style={{maxWidth:"600px",margin:"0 auto"}}>
+                <h2 style={{fontFamily:"var(--fhead)",fontSize:"1.8rem",letterSpacing:".04em",marginBottom:".5rem"}}>
+                  {propType==="ger" ? "ГАЗАРТ СУУРИЛУУЛАХ ЗАЙ" : "ДЭЭВЭРТ СУУРИЛУУЛАХ ЗАЙ"}
+                </h2>
+                <p style={{color:"var(--muted)",fontSize:".9rem",marginBottom:"2rem"}}>
+                  {propType==="ger"
+                    ? "Гэрийн эргэн тойронд нарны панел суурилуулах газрын зай байна уу? (10kW системд ойролцоогоор 55м² шаардлагатай)"
+                    : propType==="apartment"
+                    ? "Байрны дээвэрт хамтарч нарны панел суурилуулах боломж байна уу? (Нэг тохойд 3-5kW буюу 16-28м² дээвэрт хэрэгтэй)"
+                    : "Хашааны байшингийн дээвэрт нарны панел суурилуулах зай байна уу? (10kW системд 55м² дээвэр хэрэгтэй)"}
+                </p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1.5rem"}}>
+                  {[
+                    {k:"yes",icon:"✅",title:"Тийм, зай хангалттай",color:"var(--green3)"},
+                    {k:"limited",icon:"⚠️",title:"Хязгаарлагдмал зайтай",color:"var(--gold)"},
+                  ].map(o=>(
+                    <div key={o.k} onClick={()=>setHasSpace(o.k)} style={{background:hasSpace===o.k?"rgba(74,222,128,.1)":"rgba(255,255,255,.04)",border:hasSpace===o.k?"2px solid var(--green3)":"2px solid var(--border)",borderRadius:"var(--radius-lg)",padding:"1.25rem",cursor:"pointer",textAlign:"center",transition:"all .2s"}}>
+                      <div style={{fontSize:"1.75rem",marginBottom:".5rem"}}>{o.icon}</div>
+                      <div style={{fontSize:".9rem",fontWeight:"600",color:o.color}}>{o.title}</div>
+                    </div>
+                  ))}
+                </div>
+                <div style={{display:"flex",gap:"10px",justifyContent:"flex-end"}}>
+                  <button className="btn btn-g" onClick={()=>setStep(1)}>← Буцах</button>
+                  <button className="btn btn-p" onClick={()=>hasSpace&&setStep(3)} disabled={!hasSpace}>Үргэлжлүүлэх →</button>
+                </div>
               </div>
-            </div>
+            )}
+
+            {/* STEP 3: Details */}
+            {step===3 && (
+              <div style={{maxWidth:"600px",margin:"0 auto"}}>
+                <h2 style={{fontFamily:"var(--fhead)",fontSize:"1.8rem",letterSpacing:".04em",marginBottom:".5rem"}}>ДЭЛГЭРЭНГҮЙ МЭДЭЭЛЭЛ</h2>
+                <p style={{color:"var(--muted)",fontSize:".9rem",marginBottom:"1.75rem"}}>Доорх мэдээлэл тооцооны нарийвчлалыг нэмэгдүүлнэ.</p>
+                <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1rem"}}>
+                  <div className="field">
+                    <label>Нийт талбай (м²)</label>
+                    <input value={area} onChange={e=>setArea(e.target.value)} placeholder={propType==="ger"?"50":propType==="apartment"?"70":"120"}/>
+                  </div>
+                  <div className="field">
+                    <label>Сарын цахилгааны зардал (₮)</label>
+                    <input value={monthly} onChange={e=>setMonthly(e.target.value.replace(/[^0-9]/g,""))} placeholder="150000"/>
+                  </div>
+                </div>
+                <div className="field" style={{marginBottom:"1.5rem"}}>
+                  <label>Халаалтын төрөл</label>
+                  <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"8px",marginTop:"6px"}}>
+                    {[{k:"electric",l:"⚡ Цахилгаан"},{k:"coal",l:"🪨 Нүүрс"},{k:"central",l:"🔥 Төвийн"}].map(h=>(
+                      <div key={h.k} onClick={()=>setHeat(h.k)} style={{background:heat===h.k?"rgba(74,222,128,.12)":"rgba(255,255,255,.04)",border:heat===h.k?"2px solid var(--green3)":"1px solid var(--border)",borderRadius:"var(--radius)",padding:"10px",cursor:"pointer",textAlign:"center",fontSize:".82rem",fontWeight:"600",transition:"all .2s",color:heat===h.k?"var(--green3)":"var(--muted)"}}>
+                        {h.l}
+                      </div>
+                    ))}
+                  </div>
+                </div>
+                {!canCalc && <div style={{background:"rgba(248,113,113,.08)",border:"1px solid rgba(248,113,113,.25)",borderRadius:"var(--radius)",padding:"9px 12px",fontSize:".78rem",color:"#f87171",marginBottom:"1rem"}}>Оноо хүрэлцэхгүй — дашбоард руу очиж нэм.</div>}
+                <div style={{display:"flex",gap:"10px",justifyContent:"flex-end"}}>
+                  <button className="btn btn-g" onClick={()=>setStep(2)}>← Буцах</button>
+                  <button className="btn btn-p" onClick={generateReport} disabled={!area||!monthly||!heat||!canCalc||loading}>
+                    {loading?"Тооцоолж байна...":"☀ Тооцоолол гаргах →"}
+                  </button>
+                </div>
+              </div>
+            )}
+
+            {/* STEP 4: REPORT */}
+            {step===4 && (
+              <div>
+                {loading && (
+                  <div style={{textAlign:"center",padding:"4rem 2rem"}}>
+                    <div style={{fontSize:"3rem",marginBottom:"1rem",animation:"spin 2s linear infinite"}}>☀</div>
+                    <div style={{fontFamily:"var(--fhead)",fontSize:"1.5rem",letterSpacing:".04em",marginBottom:".5rem"}}>ТООЦООЛЖ БАЙНА...</div>
+                    <div style={{color:"var(--muted)",fontSize:".9rem"}}>AI таны гэрт хамгийн тохиромжтой нарны системийг тооцоолж байна</div>
+                    <style>{`@keyframes spin{from{transform:rotate(0)}to{transform:rotate(360deg)}}`}</style>
+                  </div>
+                )}
+                {!loading && report && !report.error && (
+                  <div>
+                    {/* HEADER */}
+                    <div style={{background:"linear-gradient(135deg,rgba(45,134,83,.3),rgba(74,222,128,.1))",border:"1px solid rgba(74,222,128,.3)",borderRadius:"var(--radius-lg)",padding:"1.5rem 2rem",marginBottom:"1.5rem",display:"flex",alignItems:"center",justifyContent:"space-between",flexWrap:"wrap",gap:"1rem"}}>
+                      <div>
+                        <div style={{fontFamily:"var(--fhead)",fontSize:"2rem",letterSpacing:".04em",color:"var(--green3)"}}>ТООЦООНЫ ТАЙЛАН</div>
+                        <div style={{fontSize:".82rem",color:"var(--muted)",marginTop:"3px"}}>{typeLabel[propType]} · {area}м² · {heat==="electric"?"Цахилгаан":heat==="coal"?"Нүүрс":"Төвийн"} халаалт · {parseInt(monthly).toLocaleString()}₮/сар</div>
+                      </div>
+                      <button className="btn btn-gold" onClick={downloadReport}>⬇ Тайлан татах</button>
+                    </div>
+
+                    {/* SYSTEM SPECS */}
+                    <div style={{marginBottom:"1.25rem"}}>
+                      <div style={{fontSize:".7rem",color:"var(--green3)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:".75rem",fontWeight:"600"}}>Санал болгох систем</div>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(3,1fr)",gap:"1rem"}}>
+                        {[
+                          {icon:"⚡",val:`${report.recommended_kw} kW`,lbl:"Хүчин чадал",c:"var(--green3)"},
+                          {icon:"🔲",val:`${report.panel_count} ш`,lbl:"Панелийн тоо",c:"#60a5fa"},
+                          {icon:"📐",val:`${report.space_needed_m2} м²`,lbl:"Шаардлагатай талбай",c:"var(--gold)"},
+                        ].map(m=>(
+                          <div key={m.lbl} style={{background:"rgba(255,255,255,.04)",border:"1px solid var(--border)",borderRadius:"var(--radius-lg)",padding:"1.25rem",textAlign:"center"}}>
+                            <div style={{fontSize:"1.5rem",marginBottom:".5rem"}}>{m.icon}</div>
+                            <div style={{fontFamily:"var(--fhead)",fontSize:"1.75rem",letterSpacing:".04em",color:m.c,lineHeight:1}}>{m.val}</div>
+                            <div style={{fontSize:".68rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:".06em",marginTop:"4px"}}>{m.lbl}</div>
+                          </div>
+                        ))}
+                      </div>
+                    </div>
+
+                    {/* FINANCIAL */}
+                    <div style={{marginBottom:"1.25rem"}}>
+                      <div style={{fontSize:".7rem",color:"var(--green3)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:".75rem",fontWeight:"600"}}>Санхүүгийн тооцоо</div>
+                      <div style={{display:"grid",gridTemplateColumns:"repeat(2,1fr)",gap:"1rem"}}>
+                        <div style={{background:"rgba(255,255,255,.04)",border:"1px solid var(--border)",borderRadius:"var(--radius-lg)",padding:"1.25rem"}}>
+                          <div style={{fontSize:".72rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:"1rem",fontWeight:"600"}}>Зардал</div>
+                          {[
+                            ["Суурилуулалтын зардал",`${(report.installation_cost/1000000).toFixed(1)}M₮`,"#f87171"],
+                            ["Карбон 20% хөнгөлөлтийн дараа",`${(report.after_carbon/1000000).toFixed(1)}M₮`,"var(--green3)"],
+                            ["Сарын зээлийн төлбөр",`${Math.round(report.monthly_loan/1000)}K₮`,"var(--gold)"],
+                          ].map(([l,v,c])=>(
+                            <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,.06)"}}>
+                              <span style={{fontSize:".8rem",color:"var(--muted)"}}>{l}</span>
+                              <span style={{fontWeight:"700",color:c,fontSize:".9rem"}}>{v}</span>
+                            </div>
+                          ))}
+                        </div>
+                        <div style={{background:"rgba(255,255,255,.04)",border:"1px solid var(--border)",borderRadius:"var(--radius-lg)",padding:"1.25rem"}}>
+                          <div style={{fontSize:".72rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:".06em",marginBottom:"1rem",fontWeight:"600"}}>Орлого</div>
+                          {[
+                            ["Жилийн экспортын орлого",`${(report.annual_export_income/1000000).toFixed(1)}M₮`,"var(--green3)"],
+                            ["Жилийн цахилгааны хэмнэлт",`${(report.annual_saving/1000000).toFixed(1)}M₮`,"var(--green3)"],
+                            ["Хөрөнгө нөхөх хугацаа",`${report.payback_years} жил`,"var(--gold)"],
+                          ].map(([l,v,c])=>(
+                            <div key={l} style={{display:"flex",justifyContent:"space-between",alignItems:"baseline",padding:"6px 0",borderBottom:"1px solid rgba(255,255,255,.06)"}}>
+                              <span style={{fontSize:".8rem",color:"var(--muted)"}}>{l}</span>
+                              <span style={{fontWeight:"700",color:c,fontSize:".9rem"}}>{v}</span>
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* ECO + SUMMARY */}
+                    <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:"1rem",marginBottom:"1.25rem"}}>
+                      <div style={{background:"rgba(74,222,128,.06)",border:"1px solid rgba(74,222,128,.2)",borderRadius:"var(--radius-lg)",padding:"1.25rem"}}>
+                        <div style={{fontSize:".7rem",color:"var(--green3)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:".875rem",fontWeight:"600"}}>🌿 Байгаль орчны ашиг</div>
+                        <div style={{display:"flex",gap:"1rem"}}>
+                          <div style={{textAlign:"center",flex:1}}>
+                            <div style={{fontFamily:"var(--fhead)",fontSize:"1.5rem",color:"var(--green3)",letterSpacing:".04em"}}>{report.co2_reduction_tons}</div>
+                            <div style={{fontSize:".68rem",color:"var(--muted)"}}>тн CO₂/жил</div>
+                          </div>
+                          <div style={{textAlign:"center",flex:1}}>
+                            <div style={{fontFamily:"var(--fhead)",fontSize:"1.5rem",color:"#74c69d",letterSpacing:".04em"}}>{report.coal_saving_tons}</div>
+                            <div style={{fontSize:".68rem",color:"var(--muted)"}}>тн нүүрс/жил</div>
+                          </div>
+                        </div>
+                      </div>
+                      <div style={{background:"rgba(255,255,255,.04)",border:"1px solid var(--border)",borderRadius:"var(--radius-lg)",padding:"1.25rem"}}>
+                        <div style={{fontSize:".7rem",color:"var(--gold)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:".875rem",fontWeight:"600"}}>💡 Зөвлөмжүүд</div>
+                        <div style={{display:"flex",flexDirection:"column",gap:"5px"}}>
+                          {(report.tips||[]).map((t,i)=>(
+                            <div key={i} style={{fontSize:".78rem",color:"var(--muted)",padding:"4px 0",borderBottom:"1px solid rgba(255,255,255,.05)"}}>· {t}</div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+
+                    {/* SUMMARY */}
+                    <div style={{background:"rgba(255,255,255,.03)",border:"1px solid var(--border)",borderRadius:"var(--radius-lg)",padding:"1.25rem",marginBottom:"1.5rem"}}>
+                      <div style={{fontSize:".7rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:".5rem",fontWeight:"600"}}>Дүгнэлт</div>
+                      <p style={{fontSize:".9rem",lineHeight:"1.7",color:"rgba(255,255,255,.85)"}}>{report.summary}</p>
+                    </div>
+
+                    {/* FOLLOW-UP CHAT */}
+                    <div style={{background:"rgba(255,255,255,.04)",border:"1px solid var(--border)",borderRadius:"var(--radius-lg)",overflow:"hidden"}}>
+                      <div style={{padding:".875rem 1.25rem",borderBottom:"1px solid var(--border)",display:"flex",alignItems:"center",gap:"8px"}}>
+                        <div className="aip"/>
+                        <span style={{fontSize:".875rem",fontWeight:"600"}}>Нэмэлт асуулт асуух</span>
+                        <span style={{marginLeft:"auto",fontSize:".75rem",color:"var(--muted)"}}>{COST} оноо/асуулт</span>
+                      </div>
+                      <div style={{maxHeight:"200px",overflowY:"auto",padding:"1rem",display:"flex",flexDirection:"column",gap:".75rem"}}>
+                        {chatMsgs.length===0 && <div style={{fontSize:".82rem",color:"var(--muted)"}}>Тооцооны тайланд холбоотой асуулт асуух боломжтой.</div>}
+                        {chatMsgs.map((m,i)=>(
+                          <div key={i} className={`msg ${m.role==="assistant"?"ai":"user"}`} style={{whiteSpace:"pre-wrap"}}>{m.content}</div>
+                        ))}
+                        {chatLoading && <div className="msg ai loading"><div className="dot"/><div className="dot"/><div className="dot"/></div>}
+                      </div>
+                      {canCalc ? (
+                        <form style={{padding:".75rem 1rem",borderTop:"1px solid var(--border)",display:"flex",gap:"8px"}} onSubmit={sendChat}>
+                          <input value={chatQ} onChange={e=>setChatQ(e.target.value)} placeholder="Жишээ нь: Хэдэн жилд зардал нөхөгдөх вэ?" disabled={chatLoading}
+                            style={{flex:1,background:"rgba(255,255,255,.07)",border:"1px solid var(--border)",borderRadius:"999px",padding:"9px 16px",color:"#fff",fontFamily:"var(--fbody)",fontSize:".85rem"}}/>
+                          <button className="btn btn-p btn-sm" type="submit" disabled={!chatQ.trim()||chatLoading}>→</button>
+                        </form>
+                      ) : (
+                        <div style={{padding:".75rem 1rem",borderTop:"1px solid var(--border)",display:"flex",alignItems:"center",justifyContent:"space-between"}}>
+                          <span style={{fontSize:".78rem",color:"var(--muted)"}}>⚡ {COST} оноо шаардлагатай</span>
+                          <button className="btn btn-p btn-sm" onClick={()=>setPage("dash")}>Оноо нэмэх →</button>
+                        </div>
+                      )}
+                    </div>
+                  </div>
+                )}
+                {!loading && report?.error && (
+                  <div style={{textAlign:"center",padding:"3rem",background:"rgba(248,113,113,.08)",border:"1px solid rgba(248,113,113,.25)",borderRadius:"var(--radius-lg)"}}>
+                    <div style={{fontSize:"2rem",marginBottom:"1rem"}}>⚠️</div>
+                    <div style={{color:"#f87171",marginBottom:"1rem"}}>{report.error}</div>
+                    <button className="btn btn-p" onClick={()=>setStep(3)}>← Дахин оролдох</button>
+                  </div>
+                )}
+              </div>
+            )}
           </div>
         )}
 
