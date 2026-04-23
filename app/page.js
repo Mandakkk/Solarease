@@ -1,29 +1,38 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
-import { createClient } from "@supabase/supabase-js";
 
-const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
-const SUPA_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-const _sb = (SUPA_URL && SUPA_KEY) ? createClient(SUPA_URL, SUPA_KEY) : null;
+// ── Supabase lazy init ─────────────────────────────────────
+// createClient is called ONLY inside the browser, never during SSR prerender.
+let _sb = null;
+function getSB() {
+  if (_sb) return _sb;
+  if (typeof window === "undefined") return null;
+  const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
+  const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+  if (!url || !key) return null;
+  try {
+    const { createClient } = require("@supabase/supabase-js");
+    _sb = createClient(url, key);
+  } catch { _sb = null; }
+  return _sb;
+}
 
-// Fallback table object when Supabase not configured
 const _noop = {
   select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null }), order: () => ({ limit: () => Promise.resolve({ data: [] }) }) }) }),
   insert: () => Promise.resolve({ error: null }),
   update: () => ({ eq: () => Promise.resolve({ error: null }) }),
 };
 
-// Safe Supabase wrapper — prevents build crash when env vars missing
 const db = {
   auth: {
-    getSession: () => _sb ? _sb.auth.getSession() : Promise.resolve({ data: { session: null } }),
-    signUp: (o) => _sb ? _sb.auth.signUp(o) : Promise.resolve({ data: null, error: { message: "Supabase тохируулагдаагүй байна" } }),
-    signInWithPassword: (o) => _sb ? _sb.auth.signInWithPassword(o) : Promise.resolve({ data: null, error: { message: "Supabase тохируулагдаагүй байна" } }),
-    signOut: () => _sb ? _sb.auth.signOut() : Promise.resolve(),
-    resetPasswordForEmail: (e) => _sb ? _sb.auth.resetPasswordForEmail(e) : Promise.resolve({ error: null }),
-    onAuthStateChange: (cb) => _sb ? _sb.auth.onAuthStateChange(cb) : { data: { subscription: { unsubscribe: () => {} } } },
+    getSession: () => getSB() ? getSB().auth.getSession() : Promise.resolve({ data: { session: null } }),
+    signUp: (o) => getSB() ? getSB().auth.signUp(o) : Promise.resolve({ data: null, error: { message: "Supabase тохируулагдаагүй байна" } }),
+    signInWithPassword: (o) => getSB() ? getSB().auth.signInWithPassword(o) : Promise.resolve({ data: null, error: { message: "Supabase тохируулагдаагүй байна" } }),
+    signOut: () => getSB() ? getSB().auth.signOut() : Promise.resolve(),
+    resetPasswordForEmail: (e) => getSB() ? getSB().auth.resetPasswordForEmail(e) : Promise.resolve({ error: null }),
+    onAuthStateChange: (cb) => getSB() ? getSB().auth.onAuthStateChange(cb) : { data: { subscription: { unsubscribe: () => {} } } },
   },
-  from: (table) => _sb ? _sb.from(table) : _noop,
+  from: (table) => getSB() ? getSB().from(table) : _noop,
 };
 
 
