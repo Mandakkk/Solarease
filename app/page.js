@@ -566,7 +566,7 @@ export default function SolarEase() {
       showToast("Тавтай морил! +50 оноо!");
 
     } else {
-      // Нэвтрэх — зөвхөн Supabase-д бүртгэлтэй хэрэглэгч л нэвтэрнэ
+      // Нэвтрэх
       const { data, error } = await db.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password: pass
@@ -576,17 +576,58 @@ export default function SolarEase() {
         if (msg.includes("Invalid login") || msg.includes("invalid_credentials") || msg.includes("Invalid credentials")) {
           showToast("Имэйл эсвэл нууц үг буруу байна");
         } else if (msg.includes("Email not confirmed")) {
-          showToast("⚠ Имэйлээ баталгаажуулна уу. Supabase → Authentication → Email → Confirm email OFF болгоно уу.");
-        } else if (msg.includes("Supabase тохируулагдаагүй")) {
-          showToast("⚠ Vercel дээр SUPABASE env var тохируулаагүй байна");
+          showToast("Имэйлийг баталгаажуулна уу — Supabase → Auth → Email → Confirm email OFF");
         } else {
           showToast("Нэвтрэх алдаа: " + msg);
         }
         return;
       }
-      if (!data?.user?.id) { showToast("Нэвтрэх амжилтгүй. Дахин оролдоно уу."); return; }
-      await fetchProfile(data.user.id);
-      showToast("Нэвтэрлээ! Таны оноо хадгалагдсан байна ✓");
+      const uid = data?.user?.id;
+      if (!uid) { showToast("Нэвтрэх амжилтгүй. Дахин оролдоно уу."); return; }
+
+      // Profile-г Supabase-аас татах
+      let profileData = null;
+      try {
+        const sb = getSB();
+        if (sb) {
+          const { data: p } = await sb.from("profiles").select("*").eq("id", uid).single();
+          profileData = p;
+        }
+      } catch(e) { console.warn("fetchProfile warn:", e); }
+
+      if (profileData) {
+        // Profile олдсон — Supabase-аас ирсэн мэдээллээр нэвтэрнэ
+        setUser(profileData);
+        try {
+          const sb = getSB();
+          if (sb) {
+            const { data: hist } = await sb.from("point_history")
+              .select("*").eq("user_id", uid)
+              .order("created_at", { ascending: false }).limit(20);
+            if (hist) setHistory(hist.map(h => ({
+              desc: h.description, pts: h.points,
+              t: new Date(h.created_at).toLocaleTimeString()
+            })));
+          }
+        } catch(e) {}
+        showToast("Нэвтэрлээ! Оноо: " + (profileData.points || 0));
+      } else {
+        // Profile олдоогүй → шинэ profile үүсгэж нэвтэрнэ
+        const refCode = genCode(email);
+        const newUser = { id: uid, name: email.split("@")[0], email: email.trim().toLowerCase(), points: 50, ref_code: refCode, verified: false, ad_count: 0, invite_count: 0 };
+        try {
+          const sb = getSB();
+          if (sb) {
+            await sb.from("profiles").insert(newUser);
+            await sb.from("point_history").insert({ user_id: uid, description: "Бүртгэлийн урамшуулал", points: 50 });
+          }
+        } catch(e) { console.warn("profile insert warn:", e); }
+        setUser(newUser);
+        setHistory([{ desc: "Бүртгэлийн урамшуулал", pts: 50, t: new Date().toLocaleTimeString() }]);
+        showToast("Нэвтэрлээ! +50 эхлэлийн оноо!");
+      }
+      setPage(authReturn);
+      return;
     }
     setPage(authReturn);
     } catch(err) {
