@@ -1,5 +1,12 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { createClient } from "@supabase/supabase-js";
+
+const supabase = createClient(
+  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
+  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
+);
+
 
 /* ─── STYLES ─────────────────────────────────────────────── */
 const G = `
@@ -367,7 +374,6 @@ const PROJECTS = [
 ];
 
 const COST = 30;
-const genCode = n => "SE-" + (n||"X").slice(0,3).toUpperCase() + Math.random().toString(36).slice(2,6).toUpperCase();
 
 async function askClaude(messages) {
   try {
@@ -417,17 +423,58 @@ export default function SolarEase() {
   useEffect(() => {
     if (toast) { const t = setTimeout(() => setToast(null), 3000); return () => clearTimeout(t); }
   }, [toast]);
+
+  // Check existing Supabase session on load
+  useEffect(() => {
+    const loadSession = async () => {
+      const { data: { session } } = await supabase.auth.getSession();
+      if (session) {
+        await fetchProfile(session.user.id);
+      }
+    };
+    loadSession();
+
+    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+      if (session) await fetchProfile(session.user.id);
+      else { setUser(null); setHistory([]); }
+    });
+    return () => listener.subscription.unsubscribe();
+  }, []);
+
+  const fetchProfile = async (userId) => {
+    const { data: profile } = await supabase
+      .from("profiles").select("*").eq("id", userId).single();
+    if (profile) {
+      setUser(profile);
+      setPage(p => p === "landing" ? "invest" : p);
+      // Load history
+      const { data: hist } = await supabase
+        .from("point_history")
+        .select("*").eq("user_id", userId)
+        .order("created_at", { ascending: false }).limit(20);
+      if (hist) setHistory(hist.map(h => ({ desc: h.description, pts: h.points, t: new Date(h.created_at).toLocaleTimeString() })));
+    }
+  };
   useEffect(() => { msgEnd.current?.scrollIntoView({ behavior: "smooth" }); }, [msgs]);
 
   const showToast = msg => setToast(msg);
-  const addPts = (n, desc) => {
-    setUser(u => ({ ...u, points: u.points + n }));
+  const addPts = async (n, desc) => {
+    setUser(u => ({ ...u, points: (u?.points || 0) + n }));
     setHistory(h => [{ desc, pts: n, t: new Date().toLocaleTimeString() }, ...h]);
     showToast(`+${n} оноо нэмэгдлээ!`);
+    if (user?.id) {
+      await supabase.from("profiles").update({ points: (user?.points || 0) + n }).eq("id", user.id);
+      await supabase.from("point_history").insert({ user_id: user.id, description: desc, points: n });
+    }
   };
-  const usePts = (n, desc) => {
-    setUser(u => ({ ...u, points: u.points - n }));
+
+  const usePts = async (n, desc) => {
+    setUser(u => ({ ...u, points: (u?.points || 0) - n }));
     setHistory(h => [{ desc, pts: -n, t: new Date().toLocaleTimeString() }, ...h]);
+    if (user?.id) {
+      await supabase.from("profiles").update({ points: (user?.points || 0) - n }).eq("id", user.id);
+      await supabase.from("point_history").insert({ user_id: user.id, description: desc, points: -n });
+    }
   };
 
   function goCalc() {
@@ -436,54 +483,91 @@ export default function SolarEase() {
   }
   function goInvest() { setPage("invest"); setSelectedProject(null); }
 
-  function handleAuth(e) {
+  const handleAuth = async (e) => {
     e.preventDefault();
-    const u = { name, email, points: authMode === "register" ? 50 : 120, refCode: genCode(name), tc: { ad: 0, verify: 0, invite: 0 }, verified: authMode !== "register" };
-    setUser(u);
-    if (authMode === "register") setHistory([{ desc: "Бүртгэлийн урамшуулал", pts: 50, t: new Date().toLocaleTimeString() }]);
-    showToast(authMode === "register" ? "Тавтай морил! +50 оноо!" : "Нэвтэрлээ!");
+    if (authMode === "register") {
+      // 1. Supabase Auth-д бүртгэх
+      const { data, error } = await supabase.auth.signUp({ email, password: pass });
+      if (error) { showToast("Алдаа: " + error.message); return; }
+
+      // 2. profiles хүснэгтэд хэрэглэгч үүсгэх
+      const refCode = genCode(name);
+      await supabase.from("profiles").insert({
+        id: data.user.id,
+        name, email, points: 50,
+        ref_code: refCode,
+        verified: false,
+        ad_count: 0,
+        invite_count: 0,
+      });
+
+      // 3. Оноoны түүхэнд нэмэх
+      await supabase.from("point_history").insert({
+        user_id: data.user.id,
+        description: "Бүртгэлийн урамшуулал",
+        points: 50,
+      });
+
+      // 4. Локал state шинэчлэх
+      setUser({ id: data.user.id, name, email, points: 50, ref_code: refCode, verified: false, ad_count: 0, invite_count: 0 });
+      setHistory([{ desc: "Бүртгэлийн урамшуулал", pts: 50, t: new Date().toLocaleTimeString() }]);
+      showToast("Тавтай морил! +50 оноо!");
+
+    } else {
+      // Нэвтрэх
+      const { data, error } = await supabase.auth.signInWithPassword({ email, password: pass });
+      if (error) { showToast("Нэвтрэх алдаа: " + error.message); return; }
+      await fetchProfile(data.user.id);
+      showToast("Нэвтэрлээ! Таны оноо хадгалагдсан байна ✓");
+    }
     setPage(authReturn);
-  }
+  };
 
   function startAd() {
-    if ((user.tc.ad || 0) >= 5) return;
+    if ((user?.ad_count || 0) >= 5) return;
     setAdProg(0); setAdRunning(true); setAdModal(true);
     let p = 0;
-    const iv = setInterval(() => {
+    const iv = setInterval(async () => {
       p += 100 / 30; setAdProg(Math.min(p, 100));
       if (p >= 100) {
         clearInterval(iv); setAdRunning(false); setAdModal(false);
-        setUser(u => ({ ...u, tc: { ...u.tc, ad: (u.tc.ad || 0) + 1 } }));
+        const newCount = (user?.ad_count || 0) + 1;
+        setUser(u => ({ ...u, ad_count: newCount }));
+        if (user?.id) await supabase.from("profiles").update({ ad_count: newCount }).eq("id", user.id);
         addPts(10, "Сурталчилгаа үзсэн");
       }
     }, 1000);
   }
 
-  function handleVerify() {
+  const handleVerify = async () => {
     if (vStep === 0) { setVStep(1); showToast("Код илгээлээ (demo)"); }
     else if (vStep === 1 && vCode.length >= 4) {
-      setUser(u => ({ ...u, verified: true, tc: { ...u.tc, verify: 1 } }));
-      addPts(50, "Бүртгэл баталгаажуулсан"); setVStep(2);
+      setUser(u => ({ ...u, verified: true }));
+      if (user?.id) await supabase.from("profiles").update({ verified: true }).eq("id", user.id);
+      addPts(50, "Бүртгэл баталгаажуулсан");
+      setVStep(2);
     }
-  }
+  };
 
-  function copyRef() {
-    navigator.clipboard?.writeText(user.refCode).catch(() => {});
+  const copyRef = async () => {
+    navigator.clipboard?.writeText(user?.ref_code || "").catch(() => {});
     setCopied(true); showToast("Код хуулагдлаа!");
     setTimeout(() => setCopied(false), 2000);
-    if ((user.tc.invite || 0) < 10) {
-      setTimeout(() => {
-        setUser(u => ({ ...u, tc: { ...u.tc, invite: (u.tc.invite || 0) + 1 } }));
+    if ((user?.invite_count || 0) < 10) {
+      setTimeout(async () => {
+        const newCount = (user?.invite_count || 0) + 1;
+        setUser(u => ({ ...u, invite_count: newCount }));
+        if (user?.id) await supabase.from("profiles").update({ invite_count: newCount }).eq("id", user.id);
         addPts(25, "Найз нэгдсэн (demo)");
       }, 3000);
     }
-  }
+  };
 
   async function sendMsg(e, override) {
     e?.preventDefault();
     const txt = (override || input).trim();
     if (!txt || loading) return;
-    if (!user || user.points < COST) { showToast(`${COST} оноо хэрэгтэй.`); return; }
+    if (!user || user?.points || 0 < COST) { showToast(`${COST} оноо хэрэгтэй.`); return; }
     usePts(COST, "AI тооцоолол");
     const um = { role: "user", content: txt };
     setMsgs(m => [...m, um]);
@@ -501,7 +585,7 @@ export default function SolarEase() {
     await sendMsg(null, q);
   }
 
-  const canCalc = user && user.points >= COST;
+  const canCalc = user && (user?.points || 0) >= COST;
 
   /* Return calc */
   const calcReturn = () => {
@@ -540,8 +624,9 @@ export default function SolarEase() {
           <div className="nav-r" style={{display:"flex",gap:"8px",alignItems:"center"}}>
             {user ? (
               <>
-                <div className="pts-pill">⚡ {user.points}</div>
+                <div className="pts-pill">⚡ {user?.points || 0} оноо</div>
                 <button className="btn btn-g btn-sm" onClick={() => setPage("dash")}>Хяналт</button>
+              <button className="btn btn-g btn-sm" onClick={async () => { await supabase.auth.signOut(); setUser(null); setHistory([]); setPage("landing"); showToast("Гарлаа."); }}>Гарах</button>
               </>
             ) : (
               <>
@@ -837,7 +922,7 @@ export default function SolarEase() {
             <div style={{marginBottom:"1.5rem"}}>
               <div className="stitle">☀ AI НАРНЫ ТООЦООЛОЛ</div>
               <p style={{fontSize:".85rem",color:"var(--muted)"}}>
-                Асуулт бүрт 30 оноо · Үлдэгдэл: <strong style={{color:"var(--gold)"}}>{user.points} оноо</strong>
+                Асуулт бүрт 30 оноо · Үлдэгдэл: <strong style={{color:"var(--gold)"}}>{user?.points || 0} оноо</strong>
                 {" · "}<button className="btn btn-g btn-sm" onClick={()=>setPage("dash")}>Оноо нэмэх</button>
               </p>
             </div>
@@ -867,7 +952,7 @@ export default function SolarEase() {
               </div>
               <div style={{position:"relative"}}>
                 <div className="chatbox">
-                  <div className="ch"><div className="aip"/><span className="chn">🤖 SolarEase AI</span><span className="chp">{user.points} оноо</span></div>
+                  <div className="ch"><div className="aip"/><span className="chn">🤖 SolarEase AI</span><span className="chp">{user?.points || 0} оноо</span></div>
                   <div className="cm">
                     {msgs.map((m,i)=>(
                       <div key={i} className={`msg ${m.role==="assistant"?"ai":"user"}`} style={{whiteSpace:"pre-wrap"}}>{m.content}</div>
@@ -899,35 +984,35 @@ export default function SolarEase() {
             <div className="dh">
               <div>
                 <div style={{fontSize:".7rem",color:"var(--muted)",marginBottom:"3px",textTransform:"uppercase",letterSpacing:".08em"}}>Тавтай морил</div>
-                <div className="dhello">САЙН БАЙНА УУ, <em>{user.name.toUpperCase()}</em></div>
+                <div className="dhello">САЙН БАЙНА УУ, <em>{(user?.name||"").toUpperCase()}</em></div>
               </div>
-              <div className="pd"><div className="pb2">{user.points}</div><div className="pl">Нийт оноо</div></div>
+              <div className="pd"><div className="pb2">{user?.points || 0}</div><div className="pl">Нийт оноо</div></div>
             </div>
             <div className="stitle">ОНОО ЦУГЛУУЛАХ</div>
             <div className="tasks">
-              <div className={`tc ${(user.tc.ad||0)>=5?"done":""}`}>
+              <div className={`tc ${(user?.ad_count||0)>=5?"done":""}`}>
                 <div className="tt"><div className="ti">📺</div><div className="tn">Сурталчилгаа үзэх</div></div>
-                <div className="td">30 секунд үзэж оноо ав · {user.tc.ad||0}/5 удаа</div>
+                <div className="td">30 секунд үзэж оноо ав · {user?.ad_count||0}/5 удаа</div>
                 <div className="tf"><span className="tpts">+10 оноо</span>
-                  {(user.tc.ad||0)>=5?<span className="db">✓ Дууссан</span>:<button className="btn btn-p btn-sm" onClick={startAd}>Үзэх</button>}
+                  {(user?.ad_count||0)>=5?<span className="db">✓ Дууссан</span>:<button className="btn btn-p btn-sm" onClick={startAd}>Үзэх</button>}
                 </div>
               </div>
-              <div className={`tc ${user.verified?"done":""}`}>
+              <div className={`tc ${user?.verified?"done":""}`}>
                 <div className="tt"><div className="ti">✅</div><div className="tn">Бүртгэл баталгаажуулах</div></div>
                 <div className="td">Утасны дугаар оруулж нэмэлт оноо ав</div>
-                {!user.verified && vStep < 2 && <input className="vi" value={vStep===0?vPhone:vCode} onChange={e=>vStep===0?setVPhone(e.target.value):setVCode(e.target.value)} placeholder={vStep===0?"Утасны дугаар":"4 оронтой код"}/>}
+                {!user?.verified && vStep < 2 && <input className="vi" value={vStep===0?vPhone:vCode} onChange={e=>vStep===0?setVPhone(e.target.value):setVCode(e.target.value)} placeholder={vStep===0?"Утасны дугаар":"4 оронтой код"}/>}
                 <div className="tf"><span className="tpts">+50 оноо</span>
-                  {user.verified?<span className="db">✓ Баталгаажсан</span>:<button className="btn btn-o btn-sm" onClick={handleVerify}>{vStep===0?"Код авах":"Баталгаажуулах"}</button>}
+                  {user?.verified?<span className="db">✓ Баталгаажсан</span>:<button className="btn btn-o btn-sm" onClick={handleVerify}>{vStep===0?"Код авах":"Баталгаажуулах"}</button>}
                 </div>
               </div>
               <div className="tc">
                 <div className="tt"><div className="ti">👥</div><div className="tn">Найз урих</div></div>
-                <div className="td">Таны кодоор нэгдсэн найз тутамд · {user.tc.invite||0} найз</div>
+                <div className="td">Таны кодоор нэгдсэн найз тутамд · {user?.invite_count||0} найз</div>
                 <div className="tf"><span className="tpts">+25 оноо/найз</span><button className="btn btn-g btn-sm" onClick={copyRef}>{copied?"✓ Хуулагдлаа":"Урих"}</button></div>
               </div>
               <div className="tc" style={{borderColor:"rgba(74,222,128,.3)",cursor:"pointer"}} onClick={()=>setPage("calc")}>
                 <div className="tt"><div className="ti">🤖</div><div className="tn">AI Тооцоолол</div></div>
-                <div className="td">Нарны системийн тооцоогоо хий · {Math.floor(user.points/COST)}+ асуулт</div>
+                <div className="td">Нарны системийн тооцоогоо хий · {Math.floor(user?.points || 0/COST)}+ асуулт</div>
                 <div className="tf"><span className="tpts">30 оноо/асуулт</span><button className="btn btn-p btn-sm">Нээх →</button></div>
               </div>
             </div>
@@ -935,7 +1020,7 @@ export default function SolarEase() {
             <div className="ref-box">
               <h3>НАЙЗ УРИХ</h3>
               <p>Найз тань таны кодоор бүртгүүлэхэд хоёулдаа +25 оноо авна</p>
-              <div className="rrow"><div className="rcode">{user.refCode}</div><button className="cbtn" onClick={copyRef}>{copied?"✓ Хуулагдлаа":"📋 Хуулах"}</button></div>
+              <div className="rrow"><div className="rcode">{user?.ref_code}</div><button className="cbtn" onClick={copyRef}>{copied?"✓ Хуулагдлаа":"📋 Хуулах"}</button></div>
             </div>
             {history.length > 0 && (<>
               <hr className="divider"/>
