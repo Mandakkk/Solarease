@@ -1,19 +1,25 @@
 "use client";
 import { useState, useEffect, useRef } from "react";
+import { createClient } from "@supabase/supabase-js";
 
-// ── Supabase lazy init ─────────────────────────────────────
-// createClient is called ONLY inside the browser, never during SSR prerender.
+// Static import нь fine — зөвхөн createClient() дуудлагыг lazy болгоно.
+// typeof window === "undefined" → SSR/prerender үед skip хийнэ → crash болохгүй.
 let _sb = null;
 function getSB() {
   if (_sb) return _sb;
   if (typeof window === "undefined") return null;
   const url = process.env.NEXT_PUBLIC_SUPABASE_URL;
   const key = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
-  if (!url || !key) return null;
+  if (!url || !key) {
+    console.warn("SolarEase: NEXT_PUBLIC_SUPABASE_URL эсвэл NEXT_PUBLIC_SUPABASE_ANON_KEY Vercel-д тохируулагдаагүй байна.");
+    return null;
+  }
   try {
-    const { createClient } = require("@supabase/supabase-js");
     _sb = createClient(url, key);
-  } catch { _sb = null; }
+  } catch(e) {
+    console.error("Supabase createClient алдаа:", e);
+    _sb = null;
+  }
   return _sb;
 }
 
