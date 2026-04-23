@@ -2,10 +2,29 @@
 import { useState, useEffect, useRef } from "react";
 import { createClient } from "@supabase/supabase-js";
 
-const supabase = createClient(
-  process.env.NEXT_PUBLIC_SUPABASE_URL || "",
-  process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || ""
-);
+const SUPA_URL = process.env.NEXT_PUBLIC_SUPABASE_URL;
+const SUPA_KEY = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY;
+const _sb = (SUPA_URL && SUPA_KEY) ? createClient(SUPA_URL, SUPA_KEY) : null;
+
+// Fallback table object when Supabase not configured
+const _noop = {
+  select: () => ({ eq: () => ({ single: () => Promise.resolve({ data: null }), order: () => ({ limit: () => Promise.resolve({ data: [] }) }) }) }),
+  insert: () => Promise.resolve({ error: null }),
+  update: () => ({ eq: () => Promise.resolve({ error: null }) }),
+};
+
+// Safe Supabase wrapper — prevents build crash when env vars missing
+const db = {
+  auth: {
+    getSession: () => _sb ? _sb.auth.getSession() : Promise.resolve({ data: { session: null } }),
+    signUp: (o) => _sb ? _sb.auth.signUp(o) : Promise.resolve({ data: null, error: { message: "Supabase тохируулагдаагүй байна" } }),
+    signInWithPassword: (o) => _sb ? _sb.auth.signInWithPassword(o) : Promise.resolve({ data: null, error: { message: "Supabase тохируулагдаагүй байна" } }),
+    signOut: () => _sb ? _sb.auth.signOut() : Promise.resolve(),
+    resetPasswordForEmail: (e) => _sb ? _sb.auth.resetPasswordForEmail(e) : Promise.resolve({ error: null }),
+    onAuthStateChange: (cb) => _sb ? _sb.auth.onAuthStateChange(cb) : { data: { subscription: { unsubscribe: () => {} } } },
+  },
+  from: (table) => _sb ? _sb.from(table) : _noop,
+};
 
 
 /* ─── STYLES ─────────────────────────────────────────────── */
@@ -427,14 +446,14 @@ export default function SolarEase() {
   // Check existing Supabase session on load
   useEffect(() => {
     const loadSession = async () => {
-      const { data: { session } } = await supabase.auth.getSession();
+      const { data: { session } } = await db.auth.getSession();
       if (session) {
         await fetchProfile(session.user.id);
       }
     };
     loadSession();
 
-    const { data: listener } = supabase.auth.onAuthStateChange(async (_event, session) => {
+    const { data: listener } = db.auth.onAuthStateChange(async (_event, session) => {
       if (session) await fetchProfile(session.user.id);
       else { setUser(null); setHistory([]); }
     });
@@ -463,8 +482,8 @@ export default function SolarEase() {
     setHistory(h => [{ desc, pts: n, t: new Date().toLocaleTimeString() }, ...h]);
     showToast(`+${n} оноо нэмэгдлээ!`);
     if (user?.id) {
-      await supabase.from("profiles").update({ points: (user?.points || 0) + n }).eq("id", user.id);
-      await supabase.from("point_history").insert({ user_id: user.id, description: desc, points: n });
+      await db.from("profiles").update({ points: (user?.points || 0) + n }).eq("id", user.id);
+      await db.from("point_history").insert({ user_id: user.id, description: desc, points: n });
     }
   };
 
@@ -472,8 +491,8 @@ export default function SolarEase() {
     setUser(u => ({ ...u, points: (u?.points || 0) - n }));
     setHistory(h => [{ desc, pts: -n, t: new Date().toLocaleTimeString() }, ...h]);
     if (user?.id) {
-      await supabase.from("profiles").update({ points: (user?.points || 0) - n }).eq("id", user.id);
-      await supabase.from("point_history").insert({ user_id: user.id, description: desc, points: -n });
+      await db.from("profiles").update({ points: (user?.points || 0) - n }).eq("id", user.id);
+      await db.from("point_history").insert({ user_id: user.id, description: desc, points: -n });
     }
   };
 
@@ -487,12 +506,12 @@ export default function SolarEase() {
     e.preventDefault();
     if (authMode === "register") {
       // 1. Supabase Auth-д бүртгэх
-      const { data, error } = await supabase.auth.signUp({ email: email.trim().toLowerCase(), password: pass });
+      const { data, error } = await db.auth.signUp({ email: email.trim().toLowerCase(), password: pass });
       if (error) { showToast("Алдаа: " + error.message); return; }
 
       // 2. profiles хүснэгтэд хэрэглэгч үүсгэх
       const refCode = genCode(name);
-      await supabase.from("profiles").insert({
+      await db.from("profiles").insert({
         id: data.user.id,
         name, email, points: 50,
         ref_code: refCode,
@@ -502,7 +521,7 @@ export default function SolarEase() {
       });
 
       // 3. Оноoны түүхэнд нэмэх
-      await supabase.from("point_history").insert({
+      await db.from("point_history").insert({
         user_id: data.user.id,
         description: "Бүртгэлийн урамшуулал",
         points: 50,
@@ -515,7 +534,7 @@ export default function SolarEase() {
 
     } else {
       // Нэвтрэх — зөвхөн Supabase-д бүртгэлтэй хэрэглэгч л нэвтэрнэ
-      const { data, error } = await supabase.auth.signInWithPassword({
+      const { data, error } = await db.auth.signInWithPassword({
         email: email.trim().toLowerCase(),
         password: pass
       });
@@ -545,7 +564,7 @@ export default function SolarEase() {
         clearInterval(iv); setAdRunning(false); setAdModal(false);
         const newCount = (user?.ad_count || 0) + 1;
         setUser(u => ({ ...u, ad_count: newCount }));
-        if (user?.id) await supabase.from("profiles").update({ ad_count: newCount }).eq("id", user.id);
+        if (user?.id) await db.from("profiles").update({ ad_count: newCount }).eq("id", user.id);
         addPts(10, "Сурталчилгаа үзсэн");
       }
     }, 1000);
@@ -555,7 +574,7 @@ export default function SolarEase() {
     if (vStep === 0) { setVStep(1); showToast("Код илгээлээ (demo)"); }
     else if (vStep === 1 && vCode.length >= 4) {
       setUser(u => ({ ...u, verified: true }));
-      if (user?.id) await supabase.from("profiles").update({ verified: true }).eq("id", user.id);
+      if (user?.id) await db.from("profiles").update({ verified: true }).eq("id", user.id);
       addPts(50, "Бүртгэл баталгаажуулсан");
       setVStep(2);
     }
@@ -569,7 +588,7 @@ export default function SolarEase() {
       setTimeout(async () => {
         const newCount = (user?.invite_count || 0) + 1;
         setUser(u => ({ ...u, invite_count: newCount }));
-        if (user?.id) await supabase.from("profiles").update({ invite_count: newCount }).eq("id", user.id);
+        if (user?.id) await db.from("profiles").update({ invite_count: newCount }).eq("id", user.id);
         addPts(25, "Найз нэгдсэн (demo)");
       }, 3000);
     }
@@ -639,7 +658,7 @@ export default function SolarEase() {
                 <div className="pts-pill">⚡ {user?.points || 0} оноо</div>
                 <div style={{fontSize:".78rem",color:"var(--muted)",maxWidth:"100px",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{user?.name}</div>
                 <button className="btn btn-g btn-sm" onClick={() => setPage("dash")}>Хяналт</button>
-                <button className="btn btn-sm" style={{background:"rgba(248,113,113,.12)",color:"#f87171",border:"1px solid rgba(248,113,113,.3)"}} onClick={async () => { await supabase.auth.signOut(); setUser(null); setHistory([]); setPage("landing"); showToast("Амжилттай гарлаа."); }}>↩ Гарах</button>
+                <button className="btn btn-sm" style={{background:"rgba(248,113,113,.12)",color:"#f87171",border:"1px solid rgba(248,113,113,.3)"}} onClick={async () => { await db.auth.signOut(); setUser(null); setHistory([]); setPage("landing"); showToast("Амжилттай гарлаа."); }}>↩ Гарах</button>
               </>
             ) : (
               <>
@@ -927,7 +946,7 @@ export default function SolarEase() {
                     <button type="button" style={{background:"none",border:"none",color:"var(--green3)",fontSize:".78rem",cursor:"pointer",fontFamily:"var(--fbody)"}}
                       onClick={async () => {
                         if (!email) { showToast("Имэйл хаягаа оруулна уу"); return; }
-                        const { error } = await supabase.auth.resetPasswordForEmail(email);
+                        const { error } = await db.auth.resetPasswordForEmail(email);
                         if (error) showToast("Алдаа: " + error.message);
                         else showToast("Нууц үг сэргээх линк имэйлд илгээлээ ✓");
                       }}>Нууц үгээ мартсан уу?</button>
@@ -1084,7 +1103,7 @@ export default function SolarEase() {
                     className="btn btn-sm"
                     style={{background:"rgba(248,113,113,.1)",color:"#f87171",border:"1px solid rgba(248,113,113,.3)",borderRadius:"var(--radius)"}}
                     onClick={async () => {
-                      await supabase.auth.signOut();
+                      await db.auth.signOut();
                       setUser(null);
                       setHistory([]);
                       setPage("landing");
