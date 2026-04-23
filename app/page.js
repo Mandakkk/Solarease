@@ -449,6 +449,7 @@ export default function SolarEase() {
   const [msgs, setMsgs] = useState([{ role: "assistant", content: "Сайн байна уу! Нарны системийн тооцоог хийхэд тусална.\n\nГэрийнхээ мэдээллийг оруулаад «Тооцоолох» дарна уу, эсвэл шууд асуулт бичнэ үү." }]);
   const [input, setInput] = useState("");
   const [loading, setLoading] = useState(false);
+  const [authLoading, setAuthLoading] = useState(false);
   const [selectedProject, setSelectedProject] = useState(null);
   const [activeTab, setActiveTab] = useState("overview");
   const [investAmt, setInvestAmt] = useState("1000000");
@@ -518,7 +519,10 @@ export default function SolarEase() {
   function goInvest() { setPage("invest"); setSelectedProject(null); }
 
   const handleAuth = async (e) => {
-    e.preventDefault();
+    e?.preventDefault();
+    if (authLoading) return;
+    setAuthLoading(true);
+    try {
     if (authMode === "register") {
       // 1. Supabase Auth-д бүртгэх
       const { data, error } = await db.auth.signUp({ email: email.trim().toLowerCase(), password: pass });
@@ -577,6 +581,12 @@ export default function SolarEase() {
       showToast("Нэвтэрлээ! Таны оноо хадгалагдсан байна ✓");
     }
     setPage(authReturn);
+    } catch(err) {
+      showToast("Алдаа гарлаа: " + (err?.message || "Дахин оролдоно уу"));
+      console.error("handleAuth error:", err);
+    } finally {
+      setAuthLoading(false);
+    }
   };
 
   function startAd() {
@@ -962,7 +972,7 @@ export default function SolarEase() {
                   <div className="field"><label>Нэр</label><input value={name} onChange={e=>setName(e.target.value)} placeholder="Таны нэр" required/></div>
                 )}
                 <div className="field"><label>Имэйл</label><input type="email" value={email} onChange={e=>setEmail(e.target.value)} placeholder="example@gmail.com" required/></div>
-                <div className="field"><label>Нууц үг</label><input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••" minLength={6} required/></div>
+                <div className="field"><label>Нууц үг</label><input type="password" value={pass} onChange={e=>setPass(e.target.value)} placeholder="••••••••" required/></div>
                 {authMode === "register" && (
                   <div className="field"><label>Урилгын код (заавал биш)</label><input value={refIn} onChange={e=>setRefIn(e.target.value)} placeholder="SE-XXX..."/></div>
                 )}
@@ -977,8 +987,14 @@ export default function SolarEase() {
                       }}>Нууц үгээ мартсан уу?</button>
                   </div>
                 )}
-                <button className="btn btn-p" style={{width:"100%",justifyContent:"center",marginTop:".25rem"}} type="submit">
-                  {authMode === "register" ? "БҮРТГҮҮЛЭХ" : "НЭВТРЭХ"}
+                <button
+                  className="btn btn-p"
+                  style={{width:"100%",justifyContent:"center",marginTop:".25rem",opacity:authLoading?0.6:1}}
+                  type="submit"
+                  disabled={authLoading}
+                  onClick={(e) => { e.preventDefault(); handleAuth(e); }}
+                >
+                  {authLoading ? "Түр хүлээнэ үү..." : authMode === "register" ? "БҮРТГҮҮЛЭХ" : "НЭВТРЭХ"}
                 </button>
               </form>
               <div className="auth-switch">
