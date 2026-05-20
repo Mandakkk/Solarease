@@ -1,8 +1,9 @@
 {
   "dependencies": {
-    "next": "16.2.4",
+    "@anthropic-ai/sdk": "^0.97.1",
+    "@supabase/supabase-js": "^2",
+    "next": "^9.3.3",
     "react": "^19",
-    "react-dom": "^19",
-    "@supabase/supabase-js": "^2"
+    "react-dom": "^19"
   }
 }
