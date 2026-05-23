@@ -23,31 +23,119 @@ async function askClaude(messages) {
   } catch(e) { return "Холболтын алдаа: " + e.message; }
 }
 
+/* ── CATEGORIES ── */
+const CATEGORIES = {
+  residential: { label:"Айл өрх",     icon:"🏠", color:"#4ade80", bg:"rgba(74,222,128,.12)",  bd:"rgba(74,222,128,.3)" },
+  education:   { label:"Боловсрол",    icon:"🎓", color:"#60a5fa", bg:"rgba(96,165,250,.12)",  bd:"rgba(96,165,250,.3)" },
+  healthcare:  { label:"Эрүүл мэнд",   icon:"🏥", color:"#f87171", bg:"rgba(248,113,113,.12)", bd:"rgba(248,113,113,.3)" },
+  sports:      { label:"Спорт",       icon:"⚽", color:"#a78bfa", bg:"rgba(167,139,250,.12)", bd:"rgba(167,139,250,.3)" },
+  industrial:  { label:"Үйлдвэр",     icon:"🏭", color:"#fb923c", bg:"rgba(251,146,60,.12)",  bd:"rgba(251,146,60,.3)" },
+  commercial:  { label:"Бизнес",      icon:"💼", color:"#f59e0b", bg:"rgba(245,158,11,.12)",  bd:"rgba(245,158,11,.3)" },
+};
+
 /* ── PROJECTS ── */
 const PROJECTS = [
-  { id:1, title:"Сайншанд — 100 айлын нарны дээвэр", location:"Сайншанд, Дорноговь", capacity:"500 кВт", households:100,
+  /* ─── RESIDENTIAL & COMMERCIAL (existing) ─── */
+  { id:1, category:"residential", title:"Сайншанд — 100 айлын нарны дээвэр", location:"Сайншанд, Дорноговь", capacity:"500 кВт", battery:null, households:100,
     img:"https://images.unsplash.com/photo-1613665813446-82a78c468a1d?w=800&q=80",
     ret:"15%", term:"5 жил", minInvest:"1,000,000₮", raised:73, raisedAmt:"788,400,000₮",
     targetAmt:"1,080,000,000₮", investors:42, status:"open", co2:"150,391", jobs:75, lcoe:"54₮/кВт.ц", riskLevel:2,
     desc:"Сайншанд хотын 100 айл өрхийг нарны цахилгаанаар хангах эргэлтийн санхүүгийн механизм. Карбон механизмын 20% хөнгөлөлт болон Хаан Банкны ногоон зээлтэй хослуулсан бүтэц. Жилийн 15%-ийн өгөөжийг хадгалалтын дансны хүүтэй харьцуулахад 3 дахин өндөр байна.",
     updates:[{date:"2025-04",title:"Угсралт эхэллээ",body:"Rentech Engineering компани 20 айлын суурилуулалтыг эхлүүлсэн."},{date:"2025-03",title:"Карбон гэрээ",body:"JCM карбон механизмын урьдчилсан гэрээ байгуулагдлаа."},{date:"2025-02",title:"Хаан Банктай гэрээ",body:"Ногоон зээлийн санхүүжилтийн гэрээнд гарын үсэг зурлаа."}] },
-  { id:2, title:"Замын-Үүд Нарны Станц", location:"Замын-Үүд, Дорноговь", capacity:"250 кВт", households:50,
-    img:"https://images.unsplash.com/photo-1613665813446-82a78c468a1d?w=800&q=80",
+
+  { id:2, category:"residential", title:"Замын-Үүд Нарны Станц", location:"Замын-Үүд, Дорноговь", capacity:"250 кВт", battery:null, households:50,
+    img:"https://images.unsplash.com/photo-1509391366360-2e959784a276?w=800&q=80",
     ret:"13%", term:"7 жил", minInvest:"500,000₮", raised:45, raisedAmt:"243,000,000₮",
     targetAmt:"540,000,000₮", investors:28, status:"open", co2:"75,195", jobs:38, lcoe:"54₮/кВт.ц", riskLevel:2,
     desc:"Замын-Үүд хотын худалдааны бүсэд байрлах 50 айл өрхийг нарны цахилгаанаар хангах.",
     updates:[{date:"2025-04",title:"Судалгаа дууслаа",body:"Техникийн болон эдийн засгийн үндэслэл бэлтгэгдлээ."}] },
-  { id:3, title:"Дэлгэрэх Нарны Тариалан", location:"Дэлгэрэх сум, Дорноговь", capacity:"1 МВт", households:200,
-    img:"https://images.unsplash.com/photo-1613665813446-82a78c468a1d?w=800&q=80",
+
+  { id:3, category:"residential", title:"Дэлгэрэх Нарны Тариалан", location:"Дэлгэрэх сум, Дорноговь", capacity:"1 МВт", battery:null, households:200,
+    img:"https://images.unsplash.com/photo-1466611653911-95081537e5b7?w=800&q=80",
     ret:"18%", term:"10 жил", minInvest:"2,000,000₮", raised:100, raisedAmt:"2,160,000,000₮",
     targetAmt:"2,160,000,000₮", investors:87, status:"full", co2:"300,782", jobs:150, lcoe:"50₮/кВт.ц", riskLevel:1,
     desc:"Дорноговь аймгийн хамгийн том нарны цахилгаан станц. Бүрэн санхүүжигдсэн.",
     updates:[{date:"2025-01",title:"Бүрэн санхүүжигдлаа",body:"87 хөрөнгө оруулагчийн дэмжлэгтэйгээр зорилтот дүнд хүрлээ."}] },
-  { id:4, title:"Сайншанд Бизнес Парк", location:"Сайншанд, Дорноговь", capacity:"750 кВт", households:0,
-    img:"https://images.unsplash.com/photo-1613665813446-82a78c468a1d?w=800&q=80",
+
+  { id:4, category:"commercial", title:"Сайншанд Бизнес Парк", location:"Сайншанд, Дорноговь", capacity:"750 кВт", battery:null, households:0,
+    img:"https://images.unsplash.com/photo-1497440001374-f26997328c1b?w=800&q=80",
     ret:"20%", term:"8 жил", minInvest:"5,000,000₮", raised:0, raisedAmt:"0₮",
     targetAmt:"1,620,000,000₮", investors:0, status:"soon", co2:"225,587", jobs:112, lcoe:"52₮/кВт.ц", riskLevel:3,
     desc:"ААН-үүдэд зориулсан томоохон нарны цахилгаан станц. 2025 оны 3-р улиралд нээлт хийнэ.",
+    updates:[] },
+
+  /* ─── EDUCATION ─── */
+  { id:5, category:"education", title:"Сайншанд 2-р сургууль", location:"Сайншанд, Дорноговь", capacity:"50 кВт", battery:"60 кВт.ц", households:0,
+    img:"https://images.unsplash.com/photo-1580582932707-520aed937b7b?w=800&q=80",
+    ret:"TBD", term:"6 жил", minInvest:"500,000₮", raised:0, raisedAmt:"0₮",
+    targetAmt:"78,852,000₮", investors:0, status:"soon", co2:"15,039", jobs:8, lcoe:"54₮/кВт.ц", riskLevel:1,
+    desc:"Сайншанд хотын 2-р сургуулийн дээвэрт суурилуулах 50 кВт-ын нарны цахилгаан станц, 60 кВт.ц батарей. Сургуулийн жилийн цахилгааны зардлыг бараг бүрэн хэмнэх, мөн сурагчдад экологийн боловсрол олгох ач холбогдолтой.",
+    updates:[] },
+
+  { id:6, category:"education", title:"Сайншанд 14-р цэцэрлэг", location:"Сайншанд, Дорноговь", capacity:"58 кВт", battery:"60 кВт.ц", households:0,
+    img:"https://images.unsplash.com/photo-1587654780291-39c9404d746b?w=800&q=80",
+    ret:"TBD", term:"6 жил", minInvest:"500,000₮", raised:0, raisedAmt:"0₮",
+    targetAmt:"110,380,000₮", investors:0, status:"soon", co2:"17,445", jobs:9, lcoe:"54₮/кВт.ц", riskLevel:1,
+    desc:"58 кВт нарны цахилгаан болон 60 кВт.ц батарей бүхий цэцэрлэгийн төсөл. Цэцэрлэгийн халаалт, гэрэлтүүлэг, хүүхдийн хүнсний зориулалттай тоног төхөөрөмжийн цахилгаан хангамжийг тогтвортой болгоно.",
+    updates:[] },
+
+  { id:7, category:"education", title:"Сайншанд 1-р сургууль", location:"Сайншанд, Дорноговь", capacity:"50 кВт", battery:"60 кВт.ц", households:0,
+    img:"https://images.unsplash.com/photo-1503676260728-1c00da094a0b?w=800&q=80",
+    ret:"TBD", term:"6 жил", minInvest:"500,000₮", raised:0, raisedAmt:"0₮",
+    targetAmt:"78,852,000₮", investors:0, status:"soon", co2:"15,039", jobs:8, lcoe:"54₮/кВт.ц", riskLevel:1,
+    desc:"50 кВт нарны систем, 60 кВт.ц батарей бүхий 1-р сургуулийн дээврийн төсөл. Эрчим хүчний бие даалт, зардлын хэмнэлт болон сурагчдад экологийн боловсрол олгох зорилготой.",
+    updates:[] },
+
+  { id:8, category:"education", title:"Зүүнбаян ЕБС", location:"Зүүнбаян сум, Дорноговь", capacity:"36 кВт", battery:"54 кВт.ц", households:0,
+    img:"https://images.unsplash.com/photo-1546410531-bb4caa6b424d?w=800&q=80",
+    ret:"TBD", term:"7 жил", minInvest:"500,000₮", raised:0, raisedAmt:"0₮",
+    targetAmt:"53,384,000₮", investors:0, status:"soon", co2:"10,828", jobs:5, lcoe:"56₮/кВт.ц", riskLevel:2,
+    desc:"Зүүнбаян сумын ЕБС-ийн 36 кВт нарны систем. Алслагдсан сумын сургуулийн эрчим хүчний найдвартай эх үүсвэр. 54 кВт.ц батарейтай тул цахилгааны тасалдалаас сэргийлж, сургалтын чанарыг сайжруулна.",
+    updates:[] },
+
+  /* ─── HEALTHCARE ─── */
+  { id:9, category:"healthcare", title:"Дорноговь аймгийн нэгдсэн эмнэлэг", location:"Сайншанд, Дорноговь", capacity:"260 кВт", battery:"112 кВт.ц", households:0,
+    img:"https://images.unsplash.com/photo-1586773860418-d37222d8fce3?w=800&q=80",
+    ret:"TBD", term:"7 жил", minInvest:"1,000,000₮", raised:0, raisedAmt:"0₮",
+    targetAmt:"401,384,000₮", investors:0, status:"soon", co2:"78,204", jobs:40, lcoe:"52₮/кВт.ц", riskLevel:1,
+    desc:"Аймгийн нэгдсэн эмнэлгийн 260 кВт нарны цахилгаан станц, 112 кВт.ц батарей. Эмнэлгийн чухал тоног төхөөрөмжийн тасралтгүй ажиллагаа болон жилийн цахилгааны зардлыг ихээхэн бууруулна. Хүн амын эрүүл мэндийн үйлчилгээний найдвартай байдалд хувь нэмэр оруулна.",
+    updates:[] },
+
+  { id:10, category:"healthcare", title:"Уламжлалт сувилал", location:"Сайншанд, Дорноговь", capacity:"151 кВт", battery:"96 кВт.ц", households:0,
+    img:"https://images.unsplash.com/photo-1540555700478-4be289fbecef?w=800&q=80",
+    ret:"TBD", term:"7 жил", minInvest:"1,000,000₮", raised:0, raisedAmt:"0₮",
+    targetAmt:"305,500,000₮", investors:0, status:"soon", co2:"45,418", jobs:23, lcoe:"53₮/кВт.ц", riskLevel:1,
+    desc:"151 кВт нарны систем бүхий уламжлалт сувилалын төсөл. 96 кВт.ц батарей нь эмчилгээний тасалдалгүй ажиллагааг хангана. Уламжлалт анагаах ухааны байгууламжийн тогтвортой эрчим хүчний шийдэл.",
+    updates:[] },
+
+  /* ─── SPORTS ─── */
+  { id:11, category:"sports", title:"Усан бассейн", location:"Сайншанд, Дорноговь", capacity:"40.1 кВт", battery:"60 кВт.ц", households:0,
+    img:"https://images.unsplash.com/photo-1576013551627-0cc20b96c2a7?w=800&q=80",
+    ret:"TBD", term:"7 жил", minInvest:"500,000₮", raised:0, raisedAmt:"0₮",
+    targetAmt:"72,750,000₮", investors:0, status:"soon", co2:"12,062", jobs:6, lcoe:"55₮/кВт.ц", riskLevel:2,
+    desc:"40.1 кВт нарны систем бүхий усан бассейны төсөл. Усны халаалт, насос болон гэрэлтүүлэгт зориулсан тогтвортой эрчим хүчний эх үүсвэр. 60 кВт.ц батарейтай тул цахилгааны өндөр зардлын цагт нөөц эрчим хүч ашиглах боломжтой.",
+    updates:[] },
+
+  { id:12, category:"sports", title:"Спорт цогцолбор", location:"Сайншанд, Дорноговь", capacity:"22 кВт", battery:"30 кВт.ц", households:0,
+    img:"https://images.unsplash.com/photo-1571902943202-507ec2618e8f?w=800&q=80",
+    ret:"TBD", term:"7 жил", minInvest:"300,000₮", raised:0, raisedAmt:"0₮",
+    targetAmt:"35,548,000₮", investors:0, status:"soon", co2:"6,617", jobs:3, lcoe:"56₮/кВт.ц", riskLevel:2,
+    desc:"22 кВт-ын нарны систем, 30 кВт.ц батарей бүхий спорт цогцолборын төсөл. Спорт байгууламжийн жилийн эрчим хүчний зардал болон углеродын мөрийг бууруулна. Хувь нийгэмлэгийн эрүүл амьдралын соёлд хувь нэмэр.",
+    updates:[] },
+
+  { id:13, category:"sports", title:"Сайншанд Цэнгэлдэх хүрээлэн", location:"Сайншанд, Дорноговь", capacity:"6 кВт", battery:null, households:0,
+    img:"https://images.unsplash.com/photo-1577223625816-7546f13df25d?w=800&q=80",
+    ret:"TBD", term:"5 жил", minInvest:"100,000₮", raised:0, raisedAmt:"0₮",
+    targetAmt:"10,000,000₮", investors:0, status:"soon", co2:"1,805", jobs:1, lcoe:"58₮/кВт.ц", riskLevel:2,
+    desc:"Цэнгэлдэх хүрээлэнд зориулсан 6 кВт жижиг нарны систем. Цэцэрлэгт хүрээлэнгийн гэрэлтүүлэг, услалтын систем зэрэг үндсэн хэрэгцээг хангана. Хотын ногоон бүсийн тогтвортой хөгжилд хувь нэмэр.",
+    updates:[] },
+
+  /* ─── INDUSTRIAL ─── */
+  { id:14, category:"industrial", title:"Газрын тос боловсруулах үйлдвэр", location:"Алтанширээ, Дорноговь", capacity:"2.26 МВт", battery:"2.5 МВт.ц", households:0,
+    img:"https://images.unsplash.com/photo-1518709268805-4e9042af2176?w=800&q=80",
+    ret:"TBD", term:"6 жил", minInvest:"10,000,000₮", raised:0, raisedAmt:"0₮",
+    targetAmt:"3,590,300,000₮", investors:0, status:"soon", co2:"680,212", jobs:340, lcoe:"48₮/кВт.ц", riskLevel:2,
+    desc:"Дорноговь аймагт байрлах газрын тос боловсруулах үйлдвэрийн дотоод хэрэгцээний 2.26 МВт нарны цахилгаан станц. 2.5 МВт.ц батарей бүхий томоохон үйлдвэрлэлийн төсөл. Карбон бууруулах, үйлдвэрлэлийн зардал хэмнэх болон Монгол улсын эрчим хүчний хараат бус байдалд чухал ач холбогдолтой.",
     updates:[] },
 ];
 
@@ -139,6 +227,9 @@ body{font-family:var(--fbody);background:var(--bg);color:var(--text);min-height:
 .ptag.green{background:rgba(74,222,128,.1);color:var(--green3);border-color:rgba(74,222,128,.3)}
 .ptag.gold{background:rgba(245,158,11,.1);color:var(--gold);border-color:rgba(245,158,11,.3)}
 .ptag.blue{background:rgba(59,130,246,.1);color:#60a5fa;border-color:rgba(59,130,246,.3)}
+.ptag.purple{background:rgba(167,139,250,.1);color:#a78bfa;border-color:rgba(167,139,250,.3)}
+.ptag.red{background:rgba(248,113,113,.1);color:#f87171;border-color:rgba(248,113,113,.3)}
+.ptag.orange{background:rgba(251,146,60,.1);color:#fb923c;border-color:rgba(251,146,60,.3)}
 /* SIDEBAR */
 .sidebar{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.5rem;position:sticky;top:80px}
 .sb-title{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.1em;margin-bottom:1rem;font-weight:600}
@@ -146,6 +237,7 @@ body{font-family:var(--fbody);background:var(--bg);color:var(--text);min-height:
 .metric{background:rgba(255,255,255,.04);border-radius:var(--radius);padding:.875rem}
 .mv{font-family:var(--fhead);font-size:1.6rem;letter-spacing:.04em;line-height:1;color:#fff}
 .mv.green{color:var(--green3)}.mv.gold{color:var(--gold)}
+.mv.tbd{font-size:.85rem;color:var(--gold);font-family:var(--fbody);font-weight:600;letter-spacing:0}
 .ml{font-size:.68rem;color:var(--muted);margin-top:4px;text-transform:uppercase;letter-spacing:.06em}
 .prog-wrap{margin-bottom:1.25rem}
 .prog-label{display:flex;justify-content:space-between;font-size:.78rem;margin-bottom:.5rem}
@@ -160,22 +252,32 @@ body{font-family:var(--fbody);background:var(--bg);color:var(--text);min-height:
 .inv-calc{background:rgba(74,222,128,.06);border:1px solid rgba(74,222,128,.2);border-radius:var(--radius);padding:.875rem;margin-bottom:1.25rem;font-size:.82rem}
 .inv-calc-row{display:flex;justify-content:space-between;padding:3px 0}
 .inv-calc-row span:last-child{font-weight:600;color:var(--green3)}
+.inv-tbd{background:rgba(245,158,11,.08);border:1px solid rgba(245,158,11,.25);border-radius:var(--radius);padding:.875rem;margin-bottom:1.25rem;text-align:center;font-size:.82rem;color:var(--gold)}
 .inv-note{font-size:.72rem;color:var(--hint);text-align:center;margin-top:.75rem;line-height:1.5}
 /* TABS */
 .tabs{display:flex;border-bottom:1px solid var(--border);margin-bottom:2rem}
 .tab-btn{padding:10px 20px;font-size:.85rem;font-weight:500;cursor:pointer;border:none;background:transparent;color:var(--muted);font-family:var(--fbody);border-bottom:2px solid transparent;margin-bottom:-1px;transition:all .15s}
 .tab-btn.active{color:var(--green3);border-bottom-color:var(--green3)}
+/* CATEGORY FILTER */
+.cat-filter{display:flex;gap:8px;flex-wrap:wrap;margin-bottom:1.5rem;padding-bottom:1rem;border-bottom:1px dashed var(--border)}
+.cat-chip{display:inline-flex;align-items:center;gap:6px;padding:7px 14px;border-radius:999px;font-size:.78rem;font-weight:600;cursor:pointer;border:1px solid var(--border);background:rgba(255,255,255,.04);color:var(--muted);font-family:var(--fbody);transition:all .15s}
+.cat-chip:hover{color:#fff;background:rgba(255,255,255,.07)}
+.cat-chip.active{background:var(--green2);border-color:var(--green3);color:#fff}
+.cat-chip .cnt{background:rgba(0,0,0,.25);border-radius:999px;padding:1px 8px;font-size:.7rem;font-weight:700}
 /* PROJECT LIST */
 .project-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:1.25rem;margin-top:1.5rem}
-.pcard{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;transition:all .2s}
+.pcard{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:var(--radius-lg);overflow:hidden;cursor:pointer;transition:all .2s;position:relative}
 .pcard:hover{border-color:rgba(74,222,128,.35);transform:translateY(-3px)}
-.pcard-img{width:100%;height:160px;object-fit:cover}
+.pcard-imgwrap{position:relative;width:100%;height:160px;overflow:hidden}
+.pcard-img{width:100%;height:100%;object-fit:cover;display:block}
+.pcard-cat{position:absolute;top:10px;right:10px;background:rgba(0,0,0,.7);backdrop-filter:blur(8px);border-radius:999px;padding:3px 10px;font-size:.68rem;font-weight:600;display:flex;align-items:center;gap:4px}
 .pcard-body{padding:1.25rem}
 .pcard-loc{font-size:.7rem;color:var(--muted);text-transform:uppercase;letter-spacing:.08em;margin-bottom:.4rem}
-.pcard-title{font-family:var(--fhead);font-size:1.2rem;letter-spacing:.04em;margin-bottom:.75rem}
+.pcard-title{font-family:var(--fhead);font-size:1.2rem;letter-spacing:.04em;margin-bottom:.75rem;line-height:1.15;min-height:2.7rem}
 .pcard-metrics{display:grid;grid-template-columns:repeat(3,1fr);gap:.5rem;margin-bottom:1rem}
 .pm{text-align:center;background:rgba(255,255,255,.04);border-radius:8px;padding:.5rem}
-.pm .pv{font-size:.95rem;font-weight:600;color:var(--green3)}
+.pm .pv{font-size:.95rem;font-weight:600;color:var(--green3);line-height:1.1}
+.pm .pv.tbd{font-size:.65rem;color:var(--gold);line-height:1.1;letter-spacing:0}
 .pm .pl{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
 .pcard-prog{width:100%;height:4px;background:rgba(255,255,255,.1);border-radius:999px;overflow:hidden}
 .pcard-prog-fill{height:100%;background:var(--green3);border-radius:999px}
@@ -184,6 +286,8 @@ body{font-family:var(--fbody);background:var(--bg);color:var(--text);min-height:
 .status-open{background:rgba(74,222,128,.12);color:var(--green3);border:1px solid rgba(74,222,128,.3)}
 .status-full{background:rgba(255,255,255,.06);color:var(--muted);border:1px solid var(--border)}
 .status-soon{background:rgba(245,158,11,.1);color:var(--gold);border:1px solid rgba(245,158,11,.3)}
+.empty-state{text-align:center;padding:3rem 1rem;color:var(--muted);grid-column:1/-1}
+.empty-state .es-i{font-size:2.5rem;opacity:.4;margin-bottom:.5rem}
 /* AUTH */
 .auth-page{position:relative;z-index:10;flex:1;display:flex;align-items:center;justify-content:center;padding:2rem;min-height:calc(100vh - 64px)}
 .auth-card{background:rgba(5,15,8,.92);border:1px solid var(--border);border-radius:var(--radius-lg);padding:2rem;width:100%;max-width:400px;backdrop-filter:blur(20px)}
@@ -278,6 +382,7 @@ body{font-family:var(--fbody);background:var(--bg);color:var(--text);min-height:
 .detail-grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(180px,1fr));gap:1rem;margin-bottom:2rem}
 .detail-card{background:rgba(255,255,255,.04);border:1px solid var(--border);border-radius:var(--radius-lg);padding:1.25rem}
 .detail-card .dv{font-family:var(--fhead);font-size:1.4rem;letter-spacing:.04em;color:#fff;margin-bottom:3px}
+.detail-card .dv.tbd{font-family:var(--fbody);font-size:.95rem;color:var(--gold);font-weight:600;letter-spacing:0}
 .detail-card .dl{font-size:.72rem;color:var(--muted);text-transform:uppercase;letter-spacing:.07em}
 .update-item{display:flex;gap:1rem;padding:1rem 0;border-bottom:1px solid var(--border)}
 .update-item:last-child{border-bottom:none}
@@ -285,6 +390,12 @@ body{font-family:var(--fbody);background:var(--bg);color:var(--text);min-height:
 .update-content h4{font-size:.9rem;font-weight:600;margin-bottom:.25rem}
 .update-content p{font-size:.8rem;color:var(--muted);line-height:1.5}
 `;
+
+/* ── helpers for category styling ── */
+const catTagClass = (k) => {
+  const map = { residential:"green", education:"blue", healthcare:"red", sports:"purple", industrial:"orange", commercial:"gold" };
+  return map[k] || "";
+};
 
 export default function SolarEase() {
   const [page, setPage]                   = useState("landing");
@@ -319,6 +430,7 @@ export default function SolarEase() {
   const [selectedProject, setSelectedProject] = useState(null);
   const [activeTab, setActiveTab]         = useState("overview");
   const [investAmt, setInvestAmt]         = useState("1000000");
+  const [filterCat, setFilterCat]         = useState("all");
 
 
   // Load from localStorage on mount
@@ -546,16 +658,28 @@ h1{color:#2d8653;font-size:28px;margin-bottom:4px}
   const calcRet = () => {
     const amt = parseInt(investAmt)||0;
     const p   = selectedProject;
-    if (!p||!amt) return { annual:0, total:0, yrs:0 };
+    if (!p||!amt||p.ret==="TBD") return { annual:0, total:0, yrs:0, tbd: p?.ret === "TBD" };
     const r   = parseInt(p.ret)/100;
     const yrs = parseInt(p.term);
-    return { annual: Math.round(amt*r), total: Math.round(amt+amt*r*yrs), yrs };
+    return { annual: Math.round(amt*r), total: Math.round(amt+amt*r*yrs), yrs, tbd:false };
   };
+
+  // Filtered projects + counts
+  const filteredProjects = filterCat === "all" ? PROJECTS : PROJECTS.filter(p => p.category === filterCat);
+  const catCounts = Object.keys(CATEGORIES).reduce((acc, k) => {
+    acc[k] = PROJECTS.filter(p => p.category === k).length;
+    return acc;
+  }, {});
 
   // ── NAV helpers ───────────────────────────────────────────
   const goCalc    = () => { if (!user) { setAuthReturn("calc"); setAuthMode("register"); setPage("auth"); } else setPage("calc"); };
   const goInvest  = () => { setPage("invest"); setSelectedProject(null); };
   const doLogout  = () => { LS.set("se_user",null); setUser(null); setHistory([]); setPage("landing"); showToast("Амжилттай гарлаа."); };
+
+  // helper to display return value
+  const renderReturn = (ret, big=false) => ret === "TBD"
+    ? <span className={big ? "mv tbd" : "pv tbd"}>Тооцоолж байна</span>
+    : <span className={big ? "mv green" : "pv"}>{ret}</span>;
 
   /* ══════════════════════════════════════════════════════════ */
   /*  RENDER                                                    */
@@ -615,12 +739,12 @@ h1{color:#2d8653;font-size:28px;margin-bottom:4px}
                   <div className="cta-card invest" style={{flex:"1",minWidth:"220px"}} onClick={goInvest}>
                     <div className="cta-card-top"><div className="cta-icon i">💰</div><span className="cta-badge free">Үнэгүй үзэх</span></div>
                     <h3>Хөрөнгө Оруулах</h3>
-                    <p>Дорноговийн нарны энергийн төслүүдэд хөрөнгө оруулж жилд 13–20% өгөөж ол.</p>
+                    <p>Дорноговийн {PROJECTS.length}+ нарны энергийн төсөл — айл өрх, сургууль, эмнэлэг, үйлдвэр.</p>
                     <div className="cta-arrow" style={{color:"var(--gold)"}}>Төслүүд үзэх →</div>
                   </div>
                 </div>
                 <div className="hero-stats">
-                  {[["15%+","жилийн өгөөж"],["343₮","kWh тариф"],["20%","карбон хөнгөлөлт"],["75+","ажлын байр"]].map(([v,l])=>(
+                  {[["15%+","жилийн өгөөж"],["343₮","kWh тариф"],["20%","карбон хөнгөлөлт"],[PROJECTS.length+"+","төсөл"]].map(([v,l])=>(
                     <div key={l}><div className="hv">{v}</div><div className="hl">{l}</div></div>
                   ))}
                 </div>
@@ -659,47 +783,83 @@ h1{color:#2d8653;font-size:28px;margin-bottom:4px}
             <div style={{marginBottom:"2rem"}}>
               <div style={{fontSize:".7rem",color:"var(--green3)",textTransform:"uppercase",letterSpacing:".1em",marginBottom:".4rem",fontWeight:"600"}}>Нарны энергийн хөрөнгө оруулалт</div>
               <h1 style={{fontFamily:"var(--fhead)",fontSize:"clamp(2rem,4vw,3rem)",letterSpacing:".04em",marginBottom:".5rem"}}>ДОРНОГОВИЙН НАРНЫ ТӨСЛҮҮД</h1>
-              <p style={{fontSize:".9rem",color:"var(--muted)",maxWidth:"560px"}}>Баталгаажсан нарны цахилгааны төслүүдэд хөрөнгө оруулж, жилийн 13–20% өгөөж ол.</p>
+              <p style={{fontSize:".9rem",color:"var(--muted)",maxWidth:"600px"}}>Айл өрх, сургууль, эмнэлэг, спорт цогцолбор, үйлдвэрийн зориулалттай нарны цахилгааны төслүүд. Жилийн 13–20% өгөөжтэй боломжууд.</p>
             </div>
+
+            {/* Stats */}
             <div style={{display:"grid",gridTemplateColumns:"repeat(auto-fit,minmax(140px,1fr))",gap:".875rem",marginBottom:"2rem",background:"rgba(255,255,255,.03)",border:"1px solid var(--border)",borderRadius:"var(--radius-lg)",padding:"1.25rem"}}>
-              {[["4","Нийт төсөл"],["157","Хөрөнгө оруулагч"],["13–20%","Жилийн өгөөж"],["1M₮","Хамгийн бага"]].map(([v,l])=>(
+              {[[PROJECTS.length,"Нийт төсөл"],["157+","Хөрөнгө оруулагч"],["13–20%","Жилийн өгөөж"],["100K₮","Хамгийн бага"]].map(([v,l])=>(
                 <div key={l} style={{textAlign:"center"}}>
                   <div style={{fontFamily:"var(--fhead)",fontSize:"1.6rem",color:"var(--green3)",letterSpacing:".04em"}}>{v}</div>
                   <div style={{fontSize:".68rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:".06em",marginTop:"2px"}}>{l}</div>
                 </div>
               ))}
             </div>
+
+            {/* Category Filter */}
+            <div className="cat-filter">
+              <button className={`cat-chip ${filterCat==="all"?"active":""}`} onClick={()=>setFilterCat("all")}>
+                <span>🔆</span> Бүгд <span className="cnt">{PROJECTS.length}</span>
+              </button>
+              {Object.entries(CATEGORIES).map(([k,v])=>{
+                if (catCounts[k]===0) return null;
+                return (
+                  <button key={k} className={`cat-chip ${filterCat===k?"active":""}`} onClick={()=>setFilterCat(k)}
+                    style={filterCat===k?{background:v.bg,borderColor:v.bd,color:v.color}:{}}>
+                    <span>{v.icon}</span> {v.label} <span className="cnt">{catCounts[k]}</span>
+                  </button>
+                );
+              })}
+            </div>
+
             <div className="project-list">
-              {PROJECTS.map(p=>(
-                <div className="pcard" key={p.id} onClick={()=>{ setSelectedProject(p); setActiveTab("overview"); }}>
-                  <div>
-                    <img className="pcard-img" src={p.img} alt={p.title}/>
-                    <div style={{position:"absolute",top:"12px",left:"12px"}}>
+              {filteredProjects.length===0 && (
+                <div className="empty-state">
+                  <div className="es-i">🔍</div>
+                  <div>Энэ ангилалд төсөл олдсонгүй.</div>
+                </div>
+              )}
+              {filteredProjects.map(p=>{
+                const cat = CATEGORIES[p.category];
+                return (
+                  <div className="pcard" key={p.id} onClick={()=>{ setSelectedProject(p); setActiveTab("overview"); }}>
+                    <div className="pcard-imgwrap">
+                      <img className="pcard-img" src={p.img} alt={p.title} loading="lazy"
+                        onError={(e)=>{e.currentTarget.src="https://images.unsplash.com/photo-1509391366360-2e959784a276?w=800&q=80";}}/>
+                      <div className="pcard-cat" style={{color:cat?.color}}>
+                        <span>{cat?.icon}</span>{cat?.label}
+                      </div>
+                    </div>
+                    <div className="pcard-body">
                       <span className={`pstatus ${p.status==="open"?"status-open":p.status==="full"?"status-full":"status-soon"}`}>
                         {p.status==="open"?"● Нээлттэй":p.status==="full"?"Дүүрсэн":"Удахгүй"}
                       </span>
+                      <div className="pcard-loc">📍 {p.location}</div>
+                      <div className="pcard-title">{p.title}</div>
+                      <div className="pcard-metrics">
+                        <div className="pm">
+                          <div className={p.ret==="TBD"?"pv tbd":"pv"}>{p.ret==="TBD"?"Тооцоолж байна":p.ret}</div>
+                          <div className="pl">Өгөөж/жил</div>
+                        </div>
+                        <div className="pm"><div className="pv">{p.capacity}</div><div className="pl">Хүчин чадал</div></div>
+                        <div className="pm"><div className="pv">{p.minInvest}</div><div className="pl">Мин.</div></div>
+                      </div>
+                      <div className="pcard-prog"><div className="pcard-prog-fill" style={{width:`${p.raised}%`}}/></div>
+                      <div className="pcard-prog-label">
+                        <span style={{color:"var(--green3)",fontWeight:"600"}}>{p.raised}% санхүүжигдсэн</span>
+                        <span>{p.investors} хөрөнгө оруулагч</span>
+                      </div>
                     </div>
                   </div>
-                  <div className="pcard-body">
-                    <div className="pcard-loc">📍 {p.location}</div>
-                    <div className="pcard-title">{p.title}</div>
-                    <div className="pcard-metrics">
-                      <div className="pm"><div className="pv">{p.ret}</div><div className="pl">Өгөөж/жил</div></div>
-                      <div className="pm"><div className="pv">{p.term}</div><div className="pl">Хугацаа</div></div>
-                      <div className="pm"><div className="pv">{p.minInvest}</div><div className="pl">Хамгийн бага</div></div>
-                    </div>
-                    <div className="pcard-prog"><div className="pcard-prog-fill" style={{width:`${p.raised}%`}}/></div>
-                    <div className="pcard-prog-label"><span style={{color:"var(--green3)",fontWeight:"600"}}>{p.raised}% санхүүжигдсэн</span><span>{p.investors} хөрөнгө оруулагч</span></div>
-                  </div>
-                </div>
-              ))}
+                );
+              })}
             </div>
           </div>
         )}
 
         {/* ── PROJECT DETAIL ── */}
         {page==="invest" && selectedProject && (()=>{
-          const p=selectedProject; const ret=calcRet();
+          const p=selectedProject; const ret=calcRet(); const cat = CATEGORIES[p.category];
           return (
             <div className="page">
               <button className="btn btn-g btn-sm" style={{marginBottom:"1.5rem"}} onClick={()=>setSelectedProject(null)}>← Буцах</button>
@@ -709,17 +869,24 @@ h1{color:#2d8653;font-size:28px;margin-bottom:4px}
                     <span className={`pstatus ${p.status==="open"?"status-open":p.status==="full"?"status-full":"status-soon"}`}>
                       {p.status==="open"?"● Нээлттэй":p.status==="full"?"Дүүрсэн":"Удахгүй"}
                     </span>
-                    <span className="ptag green">Нарны цахилгаан</span>
+                    {cat && <span className={`ptag ${catTagClass(p.category)}`}>{cat.icon} {cat.label}</span>}
                     <span className="ptag blue">{p.capacity}</span>
+                    {p.battery && <span className="ptag purple">🔋 {p.battery}</span>}
                   </div>
                   <h1 className="project-title">{p.title}</h1>
                   <div className="project-loc">📍 {p.location}</div>
-                  <img className="project-img" src={p.img} alt={p.title}/>
+                  <img className="project-img" src={p.img} alt={p.title}
+                    onError={(e)=>{e.currentTarget.src="https://images.unsplash.com/photo-1509391366360-2e959784a276?w=800&q=80";}}/>
                 </div>
                 <div className="sidebar">
                   <div className="sb-title">Хөрөнгө оруулалтын нөхцөл</div>
                   <div className="metric-grid">
-                    <div className="metric"><div className="mv green">{p.ret}</div><div className="ml">Жилийн өгөөж</div></div>
+                    <div className="metric">
+                      {p.ret==="TBD"
+                        ? <div className="mv tbd">Тооцоолж байна</div>
+                        : <div className="mv green">{p.ret}</div>}
+                      <div className="ml">Жилийн өгөөж</div>
+                    </div>
                     <div className="metric"><div className="mv">{p.term}</div><div className="ml">Хугацаа</div></div>
                     <div className="metric"><div className="mv gold">{p.minInvest}</div><div className="ml">Хамгийн бага</div></div>
                     <div className="metric"><div className="mv">{p.investors}</div><div className="ml">Хөрөнгө оруулагч</div></div>
@@ -732,14 +899,21 @@ h1{color:#2d8653;font-size:28px;margin-bottom:4px}
                   {p.status!=="full" && (<>
                     <div className="inv-input-lbl">Хөрөнгө оруулах дүн (₮)</div>
                     <input className="inv-input" value={investAmt} onChange={e=>setInvestAmt(e.target.value.replace(/[^0-9]/g,""))} placeholder="1000000"/>
-                    <div className="inv-calc">
-                      <div style={{fontSize:".72rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:".5rem",fontWeight:"600"}}>Тооцоолол</div>
-                      <div className="inv-calc-row"><span>Жилийн өгөөж</span><span>{ret.annual.toLocaleString()}₮</span></div>
-                      <div className="inv-calc-row"><span>Нийт хүлээн авна ({ret.yrs}жил)</span><span>{ret.total.toLocaleString()}₮</span></div>
-                    </div>
+                    {ret.tbd ? (
+                      <div className="inv-tbd">
+                        <div style={{fontWeight:"700",marginBottom:"4px"}}>⏳ Өгөөжийн тооцоо хийгдэж байна</div>
+                        <div style={{fontSize:".75rem",opacity:.8}}>Энэ төслийн нарийвчилсан санхүүгийн тооцооллыг боловсруулж байна. Удахгүй мэдэгдэх болно.</div>
+                      </div>
+                    ) : (
+                      <div className="inv-calc">
+                        <div style={{fontSize:".72rem",color:"var(--muted)",textTransform:"uppercase",letterSpacing:".08em",marginBottom:".5rem",fontWeight:"600"}}>Тооцоолол</div>
+                        <div className="inv-calc-row"><span>Жилийн өгөөж</span><span>{ret.annual.toLocaleString()}₮</span></div>
+                        <div className="inv-calc-row"><span>Нийт хүлээн авна ({ret.yrs}жил)</span><span>{ret.total.toLocaleString()}₮</span></div>
+                      </div>
+                    )}
                     <button className="btn btn-gold" style={{width:"100%",justifyContent:"center"}}
-                      onClick={()=>{ if(!user){setAuthReturn("invest");setAuthMode("register");setPage("auth");}else showToast("Хүсэлт илгээгдлээ! (Demo)"); }}>
-                      {user?"Хөрөнгө оруулах →":"Бүртгүүлж хөрөнгө оруулах →"}
+                      onClick={()=>{ if(!user){setAuthReturn("invest");setAuthMode("register");setPage("auth");}else showToast(ret.tbd?"Сонирхол бүртгэгдлээ! Тооцоолол гарсны дараа мэдэгдэх болно.":"Хүсэлт илгээгдлээ! (Demo)"); }}>
+                      {!user?"Бүртгүүлж хөрөнгө оруулах →":ret.tbd?"Сонирхол илэрхийлэх →":"Хөрөнгө оруулах →"}
                     </button>
                     <div className="inv-note">Хөрөнгө оруулахад бүртгэл шаардлагатай. Харах нь үнэгүй.</div>
                   </>)}
@@ -754,21 +928,42 @@ h1{color:#2d8653;font-size:28px;margin-bottom:4px}
               {activeTab==="overview" && (<>
                 <p className="project-desc">{p.desc}</p>
                 <div className="detail-grid">
-                  {[{v:p.capacity,l:"Хүчин чадал"},{v:p.co2+" тонн",l:"CO₂ бууралт/жил"},{v:p.jobs+"+",l:"Ажлын байр"},{v:p.lcoe,l:"Нэгж өртөг"}].map(d=>(
+                  {[
+                    {v:p.capacity,l:"Хүчин чадал"},
+                    p.battery && {v:p.battery,l:"Батарей"},
+                    {v:p.co2+" тонн",l:"CO₂ бууралт/жил"},
+                    {v:p.jobs+"+",l:"Ажлын байр"},
+                    {v:p.lcoe,l:"Нэгж өртөг"},
+                  ].filter(Boolean).map(d=>(
                     <div className="detail-card" key={d.l}><div className="dv">{d.v}</div><div className="dl">{d.l}</div></div>
                   ))}
                 </div>
               </>)}
               {activeTab==="details" && (
                 <div className="detail-grid" style={{gridTemplateColumns:"repeat(auto-fit,minmax(200px,1fr))"}}>
-                  {[{v:p.capacity,l:"Нийт хүчин чадал"},{v:p.households>0?p.households+" айл":"ААН",l:"Хамрах хүрээ"},{v:p.ret,l:"Жилийн өгөөж"},{v:p.term,l:"Хугацаа"},{v:p.minInvest,l:"Хамгийн бага хөрөнгө"},{v:p.targetAmt,l:"Зорилтот дүн"},{v:p.raisedAmt,l:"Одоогийн санхүүжилт"},{v:p.co2+" тонн",l:"CO₂ бууралт/жил"},{v:p.jobs+"+",l:"Ажлын байр"},{v:p.lcoe,l:"LCOE нэгж өртөг"}].map(d=>(
-                    <div className="detail-card" key={d.l}><div className="dv" style={{fontSize:"1.1rem"}}>{d.v}</div><div className="dl">{d.l}</div></div>
+                  {[
+                    {v:p.capacity,l:"Нийт хүчин чадал"},
+                    p.battery && {v:p.battery,l:"Батарей багтаамж"},
+                    {v:p.households>0?p.households+" айл":"ААН/Байгууллага",l:"Хамрах хүрээ"},
+                    {v:p.ret==="TBD"?"Тооцоолж байна":p.ret,l:"Жилийн өгөөж",tbd:p.ret==="TBD"},
+                    {v:p.term,l:"Хугацаа"},
+                    {v:p.minInvest,l:"Хамгийн бага хөрөнгө"},
+                    {v:p.targetAmt,l:"Зорилтот дүн"},
+                    {v:p.raisedAmt,l:"Одоогийн санхүүжилт"},
+                    {v:p.co2+" тонн",l:"CO₂ бууралт/жил"},
+                    {v:p.jobs+"+",l:"Ажлын байр"},
+                    {v:p.lcoe,l:"LCOE нэгж өртөг"}
+                  ].filter(Boolean).map(d=>(
+                    <div className="detail-card" key={d.l}>
+                      <div className={d.tbd?"dv tbd":"dv"} style={{fontSize:d.tbd?".9rem":"1.1rem"}}>{d.v}</div>
+                      <div className="dl">{d.l}</div>
+                    </div>
                   ))}
                 </div>
               )}
               {activeTab==="updates" && (
                 <div>
-                  {p.updates.length===0 && <p style={{color:"var(--muted)",fontSize:".9rem"}}>Одоогоор мэдээлэл байхгүй.</p>}
+                  {p.updates.length===0 && <p style={{color:"var(--muted)",fontSize:".9rem"}}>Одоогоор мэдээлэл байхгүй. Төслийн явц гарсан тохиолдолд энд шинэчлэгдэх болно.</p>}
                   {p.updates.map((u,i)=>(
                     <div className="update-item" key={i}>
                       <div className="update-date">{u.date}</div>
@@ -852,7 +1047,7 @@ h1{color:#2d8653;font-size:28px;margin-bottom:4px}
             </div>
             {history.length>0 && (<>
               <hr className="divider"/>
-              <div className="stitle">ОНОOНЫ ТҮҮХ</div>
+              <div className="stitle">ОНООНЫ ТҮҮХ</div>
               <div className="hist">
                 {history.slice(0,8).map((h,i)=>(
                   <div className="hr2" key={i}>
