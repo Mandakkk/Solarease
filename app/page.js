@@ -278,6 +278,8 @@ body{font-family:var(--fbody);background:var(--bg);color:var(--text);min-height:
 .pm{text-align:center;background:rgba(255,255,255,.04);border-radius:8px;padding:.5rem}
 .pm .pv{font-size:.95rem;font-weight:600;color:var(--green3);line-height:1.1}
 .pm .pv.tbd{font-size:.65rem;color:var(--gold);line-height:1.1;letter-spacing:0}
+.pm .pv.gold{color:var(--gold);font-size:.88rem}
+.pm .pv.blue{color:#60a5fa}
 .pm .pl{font-size:.65rem;color:var(--muted);text-transform:uppercase;letter-spacing:.06em;margin-top:2px}
 .pcard-prog{width:100%;height:4px;background:rgba(255,255,255,.1);border-radius:999px;overflow:hidden}
 .pcard-prog-fill{height:100%;background:var(--green3);border-radius:999px}
@@ -395,6 +397,16 @@ body{font-family:var(--fbody);background:var(--bg);color:var(--text);min-height:
 const catTagClass = (k) => {
   const map = { residential:"green", education:"blue", healthcare:"red", sports:"purple", industrial:"orange", commercial:"gold" };
   return map[k] || "";
+};
+
+/* Format a price string like "78,852,000₮" into compact "78.8M₮" / "3.59B₮" */
+const fmtPrice = (str) => {
+  const num = parseInt(String(str||"").replace(/[^0-9]/g, ""));
+  if (!num) return str;
+  if (num >= 1_000_000_000) return (num/1_000_000_000).toFixed(2).replace(/\.?0+$/, "") + "B₮";
+  if (num >= 1_000_000)     return (num/1_000_000).toFixed(1).replace(/\.0$/, "") + "M₮";
+  if (num >= 1_000)         return Math.round(num/1_000) + "K₮";
+  return num + "₮";
 };
 
 export default function SolarEase() {
@@ -837,12 +849,37 @@ h1{color:#2d8653;font-size:28px;margin-bottom:4px}
                       <div className="pcard-loc">📍 {p.location}</div>
                       <div className="pcard-title">{p.title}</div>
                       <div className="pcard-metrics">
-                        <div className="pm">
-                          <div className={p.ret==="TBD"?"pv tbd":"pv"}>{p.ret==="TBD"?"Тооцоолж байна":p.ret}</div>
-                          <div className="pl">Өгөөж/жил</div>
-                        </div>
-                        <div className="pm"><div className="pv">{p.capacity}</div><div className="pl">Хүчин чадал</div></div>
-                        <div className="pm"><div className="pv">{p.minInvest}</div><div className="pl">Мин.</div></div>
+                        {p.ret === "TBD" ? (
+                          <>
+                            <div className="pm">
+                              <div className="pv gold" title={p.targetAmt}>{fmtPrice(p.targetAmt)}</div>
+                              <div className="pl">Шаардлагатай</div>
+                            </div>
+                            <div className="pm">
+                              <div className="pv blue">{p.capacity}</div>
+                              <div className="pl">Хүчин чадал</div>
+                            </div>
+                            <div className="pm">
+                              <div className="pv tbd">Тооцоолж байна</div>
+                              <div className="pl">Өгөөж/жил</div>
+                            </div>
+                          </>
+                        ) : (
+                          <>
+                            <div className="pm">
+                              <div className="pv">{p.ret}</div>
+                              <div className="pl">Өгөөж/жил</div>
+                            </div>
+                            <div className="pm">
+                              <div className="pv blue">{p.capacity}</div>
+                              <div className="pl">Хүчин чадал</div>
+                            </div>
+                            <div className="pm">
+                              <div className="pv">{p.minInvest}</div>
+                              <div className="pl">Мин.</div>
+                            </div>
+                          </>
+                        )}
                       </div>
                       <div className="pcard-prog"><div className="pcard-prog-fill" style={{width:`${p.raised}%`}}/></div>
                       <div className="pcard-prog-label">
